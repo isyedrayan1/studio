@@ -1,3 +1,5 @@
+// --- LEGACY / OVERALL TYPES ---
+
 export type Team = {
   id: string;
   name: string;
@@ -37,3 +39,35 @@ export type Announcement = {
   content: string;
   date: string;
 };
+
+
+// --- DAY 1 SPECIFIC TYPES ---
+
+export type Day1Team = {
+  teamId: string;
+  teamName: string;
+  group: 'A' | 'B' | 'C';
+}
+
+export type Day1MatchScore = {
+  teamId: string;
+  kills: number;
+  placement: number; // 1-12 or 1-11 depending on match
+}
+
+export type Day1Match = {
+  matchId: number; // 1-9
+  groupsCombined: ('A' | 'B' | 'C')[];
+  scores: Day1MatchScore[];
+  status: 'upcoming' | 'finished' | 'locked';
+}
+
+export type Day1LeaderboardEntry = {
+  teamId: string;
+  teamName: string;
+  group: 'A' | 'B' | 'C';
+  rank: number;
+  matchesPlayed: number;
+  totalKills: number;
+  bestPlacement: number; // For tie-breaking
+}

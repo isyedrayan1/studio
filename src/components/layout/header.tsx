@@ -9,7 +9,8 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { href: "/", label: "Home" },
   { href: "/schedule", label: "Schedule" },
-  { href: "/leaderboard", label: "Leaderboard" },
+  { href: "/leaderboard", label: "Overall Leaderboard" },
+  { href: "/day1/leaderboard", label: "Day 1 Qualifiers" },
 ];
 
 export function Header() {

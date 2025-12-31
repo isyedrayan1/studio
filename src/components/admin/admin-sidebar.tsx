@@ -11,7 +11,7 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import {
-  GanttChartSquare,
+  Flame,
   LayoutDashboard,
   LogOut,
   Megaphone,
@@ -29,13 +29,18 @@ const menuItems = [
     icon: LayoutDashboard,
   },
   {
+    href: "/admin/day1",
+    label: "Day 1",
+    icon: Flame,
+  },
+  {
     href: "/admin/teams",
-    label: "Teams",
+    label: "Teams (Overall)",
     icon: Users,
   },
   {
     href: "/admin/matches",
-    label: "Matches",
+    label: "Matches (Legacy)",
     icon: Swords,
   },
   {
@@ -63,7 +68,7 @@ export function AdminSidebar() {
             <SidebarMenuItem key={item.href}>
               <SidebarMenuButton
                 onClick={() => router.push(item.href)}
-                isActive={pathname === item.href}
+                isActive={pathname.startsWith(item.href)}
                 className="text-lg tracking-wider"
               >
                 <item.icon className="h-5 w-5" />
