@@ -1,14 +1,16 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { initialLeaderboard, mockMatches, mockTeams } from "@/lib/data";
+import { initialDay1Leaderboard, mockMatches, mockTeams } from "@/lib/data";
 import { ArrowRight, LayoutDashboard, Megaphone, Swords, Users } from "lucide-react";
 import Link from "next/link";
+
+const topTeamName = initialDay1Leaderboard.length > 0 ? initialDay1Leaderboard[0].teamName : "N/A";
 
 const quickStats = [
     { title: "Total Teams", value: mockTeams.length, icon: Users, color: "text-blue-400" },
     { title: "Matches Played", value: mockMatches.filter(m => m.status === 'finished').length, icon: Swords, color: "text-green-400" },
     { title: "Live Matches", value: mockMatches.filter(m => m.status === 'live').length, icon: Swords, color: "text-red-400 animate-pulse" },
-    { title: "Top Team", value: initialLeaderboard[0].teamName, icon: LayoutDashboard, color: "text-yellow-400" },
+    { title: "Top Team", value: topTeamName, icon: LayoutDashboard, color: "text-yellow-400" },
 ]
 
 const quickActions = [
