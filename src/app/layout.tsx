@@ -6,7 +6,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { SidebarProvider } from "@/components/ui/sidebar";
-import { PublicSidebar } from "@/components/public/public-sidebar";
 
 const bebasNeue = Bebas_Neue({
   subsets: ["latin"],
@@ -33,11 +32,10 @@ export default function RootLayout({
         )}
       >
         <SidebarProvider>
-          <div className="relative flex min-h-screen flex-col">
+          <div className="relative flex min-h-screen w-full flex-col">
             <Header />
             <div className="flex flex-1">
-              <PublicSidebar />
-              <main className="flex-1">{children}</main>
+              {children}
             </div>
             <Footer />
           </div>
