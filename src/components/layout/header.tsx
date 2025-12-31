@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Logo } from "../icons/logo";
 import { Button } from "../ui/button";
 import { cn } from "@/lib/utils";
+import { SidebarTrigger } from "../ui/sidebar";
 
 const navItems = [
   { href: "/", label: "Home" },
@@ -23,13 +24,16 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center">
+        <div className="md:hidden">
+          <SidebarTrigger />
+        </div>
         <Link href="/" className="mr-8 flex items-center gap-2">
           <Logo className="h-8 w-8 text-primary" />
           <span className="hidden text-2xl tracking-wider sm:inline-block">
             Arena Ace
           </span>
         </Link>
-        <nav className="flex items-center gap-6 text-lg tracking-wider">
+        <nav className="hidden md:flex items-center gap-6 text-lg tracking-wider">
           {navItems.map((item) => (
             <Link
               key={item.href}
