@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,7 +31,7 @@ const STATUS_CONFIG = {
   finished: { label: "Finished", color: "bg-blue-500" },
 };
 
-export default function PublicBracketPage() {
+function BracketPageContent() {
   const searchParams = useSearchParams();
   const dayIdParam = searchParams.get("dayId");
   
