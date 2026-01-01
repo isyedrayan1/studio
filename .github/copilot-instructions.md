@@ -1,7 +1,7 @@
-# Arena Ace - Copilot Instructions
+# FFSAL - Copilot Instructions
 
 ## Project Overview
-A Next.js 16 esports tournament management app for Free Fire events. Uses Firebase (Firestore + Auth), Tailwind CSS, and shadcn/ui components. Admin panel manages teams, matches, scores; public pages display live leaderboards.
+FFSAL (Free Fire Students Association League) - A Next.js 16 esports tournament management app for Free Fire events organized by Thinkbotz Association, AIML Department, Annamacharya Institute of Technology and Sciences, Kadapa-Chennur. Three-day tournament using Firebase (Firestore + Auth), Tailwind CSS, and shadcn/ui components. Admin panel manages teams, matches, scores; public pages display live leaderboards.
 
 ## Architecture
 
@@ -59,9 +59,12 @@ toast({ title: "Error", description: error.message, variant: "destructive" });
 
 ### Styling
 - Dark theme only (class `dark` on `<html>`)
-- Font: Bebas Neue (condensed, bold aesthetic)
+- Fonts: **Bebas Neue** (ALL headings, nav, sidebars, buttons), **Rajdhani** (tech/gaming font for body text)
+- Use `font-display` or `font-heading` for Bebas Neue, `font-sans` for Rajdhani
 - Colors: Primary `#FF4646` (fiery red), Accent `#29ABE2` (electric blue), Background `#333333`
 - Use `cn()` from `@/lib/utils` for conditional classes
+- Larger font sizes: Base 18px, h1: 4rem, h2: 3.5rem, h3: 2.5rem
+- Free Fire themed: Dramatic gradients, glow effects, battle-ready aesthetics
 
 ## Commands
 ```bash

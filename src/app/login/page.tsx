@@ -21,41 +21,48 @@ import { useAuth } from "@/contexts";
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { signIn, register, firebaseUser, userProfile, loading: authLoading, isAdmin, isAssociate } = useAuth();
+  const { signInAdmin, signInAssociate, firebaseUser, userProfile, associateAccount, loading: authLoading, isAdmin, isAssociate } = useAuth();
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [loginId, setLoginId] = useState("");
+  const [associatePassword, setAssociatePassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Redirect based on role when already logged in
+  // Redirect based on role when logged in
   useEffect(() => {
-    if (firebaseUser && userProfile && !authLoading) {
-      if (isAdmin) {
-        router.push("/admin/dashboard");
-      } else if (isAssociate) {
-        router.push("/associate/scores");
+    if (!authLoading && ((firebaseUser && userProfile) || associateAccount)) {
+      const redirectTo = isAdmin ? '/admin/dashboard' : isAssociate ? '/associate/scores' : null;
+      if (redirectTo) {
+        router.push(redirectTo);
       }
     }
-  }, [firebaseUser, userProfile, authLoading, isAdmin, isAssociate, router]);
+  }, [authLoading, firebaseUser, userProfile, associateAccount, isAdmin, isAssociate, router]);
 
-  // Show nothing while redirecting
-  if (firebaseUser && userProfile && !authLoading) {
+  // Show loading while auth is being checked
+  if (authLoading) {
+    return (
+      <main className="flex-1 w-full flex items-center justify-center py-12">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </main>
+    );
+  }
+
+  // Already logged in - show nothing while redirecting
+  if ((firebaseUser && userProfile) || associateAccount) {
     return null;
   }
 
-  const handleLogin = async (event: React.FormEvent) => {
+  const handleAdminLogin = async (event: React.FormEvent) => {
     event.preventDefault();
     setLoading(true);
 
     try {
-      await signIn(email, password);
+      await signInAdmin(email, password);
       toast({
         title: "Login Successful",
-        description: "Redirecting...",
+        description: "Redirecting to admin dashboard...",
       });
-      // Redirect is handled by useEffect based on role
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "Invalid credentials";
       toast({
@@ -68,40 +75,20 @@ export default function LoginPage() {
     }
   };
 
-  const handleRegister = async (event: React.FormEvent) => {
+  const handleAssociateLogin = async (event: React.FormEvent) => {
     event.preventDefault();
-    
-    if (password !== confirmPassword) {
-      toast({
-        title: "Registration Failed",
-        description: "Passwords do not match",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    if (password.length < 6) {
-      toast({
-        title: "Registration Failed",
-        description: "Password must be at least 6 characters",
-        variant: "destructive",
-      });
-      return;
-    }
-    
     setLoading(true);
 
     try {
-      await register(email, password, name);
+      await signInAssociate(loginId, associatePassword);
       toast({
-        title: "Registration Successful",
-        description: "Welcome! Redirecting to score entry...",
+        title: "Login Successful",
+        description: "Redirecting to score entry...",
       });
-      // Redirect is handled by useEffect based on role
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : "Registration failed";
+      const errorMessage = error instanceof Error ? error.message : "Invalid credentials";
       toast({
-        title: "Registration Failed",
+        title: "Login Failed",
         description: errorMessage,
         variant: "destructive",
       });
@@ -118,27 +105,27 @@ export default function LoginPage() {
             <div className="mx-auto bg-primary/20 p-3 rounded-full border border-primary/50 mb-4">
               <Shield className="h-10 w-10 text-primary" />
             </div>
-            <CardTitle className="text-4xl tracking-wider">Arena Ace</CardTitle>
-            <CardDescription className="tracking-widest">
-              Sign in or register to manage tournaments.
+            <CardTitle className="text-4xl font-display">FFSAL</CardTitle>
+            <CardDescription>
+              Free Fire Students Association League
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="login" className="w-full">
+            <Tabs defaultValue="admin" className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-4">
-                <TabsTrigger value="login" className="tracking-wider">Login</TabsTrigger>
-                <TabsTrigger value="register" className="tracking-wider">Register</TabsTrigger>
+                <TabsTrigger value="admin" className="font-semibold">Admin</TabsTrigger>
+                <TabsTrigger value="associate" className="font-semibold">Associate</TabsTrigger>
               </TabsList>
               
-              {/* Login Tab */}
-              <TabsContent value="login">
-                <form onSubmit={handleLogin} className="space-y-4">
+              {/* Admin Login Tab */}
+              <TabsContent value="admin">
+                <form onSubmit={handleAdminLogin} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="login-email" className="tracking-wider text-lg">Email</Label>
+                    <Label htmlFor="admin-email" className="text-lg">Email</Label>
                     <Input
-                      id="login-email"
+                      id="admin-email"
                       type="email"
-                      placeholder="Enter your email"
+                      placeholder="Enter admin email"
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
@@ -147,11 +134,11 @@ export default function LoginPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="login-password" className="tracking-wider text-lg">Password</Label>
+                    <Label htmlFor="admin-password" className="text-lg">Password</Label>
                     <Input 
-                      id="login-password" 
+                      id="admin-password" 
                       type="password" 
-                      placeholder="Enter your password"
+                      placeholder="Enter admin password"
                       required 
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
@@ -159,89 +146,60 @@ export default function LoginPage() {
                       autoComplete="current-password"
                     />
                   </div>
-                  <Button type="submit" className="w-full text-xl tracking-widest py-6" disabled={loading}>
+                  <Button type="submit" className="w-full text-xl font-semibold py-6" disabled={loading}>
                     {loading ? (
                       <>
                         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                         Logging in...
                       </>
                     ) : (
-                      "Log In"
+                      "Admin Login"
                     )}
                   </Button>
                 </form>
               </TabsContent>
               
-              {/* Register Tab */}
-              <TabsContent value="register">
-                <form onSubmit={handleRegister} className="space-y-4">
+              {/* Associate Login Tab */}
+              <TabsContent value="associate">
+                <form onSubmit={handleAssociateLogin} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="reg-name" className="tracking-wider text-lg">Name</Label>
+                    <Label htmlFor="associate-id" className="text-lg">Login ID</Label>
                     <Input
-                      id="reg-name"
+                      id="associate-id"
                       type="text"
-                      placeholder="Enter your name"
+                      placeholder="Enter your login ID"
                       required
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
+                      value={loginId}
+                      onChange={(e) => setLoginId(e.target.value)}
                       className="text-lg"
-                      autoComplete="name"
+                      autoComplete="username"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="reg-email" className="tracking-wider text-lg">Email</Label>
-                    <Input
-                      id="reg-email"
-                      type="email"
-                      placeholder="Enter your email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="text-lg"
-                      autoComplete="email"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="reg-password" className="tracking-wider text-lg">Password</Label>
+                    <Label htmlFor="associate-password" className="text-lg">Password</Label>
                     <Input 
-                      id="reg-password" 
+                      id="associate-password" 
                       type="password" 
-                      placeholder="At least 6 characters"
+                      placeholder="Enter your password"
                       required 
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      value={associatePassword}
+                      onChange={(e) => setAssociatePassword(e.target.value)}
                       className="text-lg" 
-                      autoComplete="new-password"
+                      autoComplete="current-password"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="reg-confirm" className="tracking-wider text-lg">Confirm Password</Label>
-                    <Input 
-                      id="reg-confirm" 
-                      type="password" 
-                      placeholder="Confirm your password"
-                      required 
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="text-lg" 
-                      autoComplete="new-password"
-                    />
-                  </div>
-                  <Button type="submit" className="w-full text-xl tracking-widest py-6" disabled={loading}>
+                  <Button type="submit" className="w-full text-xl font-semibold py-6" disabled={loading}>
                     {loading ? (
                       <>
                         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                        Creating account...
+                        Logging in...
                       </>
                     ) : (
-                      <>
-                        <UserPlus className="mr-2 h-5 w-5" />
-                        Register as Associate
-                      </>
+                      "Associate Login"
                     )}
                   </Button>
                   <p className="text-xs text-muted-foreground text-center mt-2">
-                    New registrations get Associate access for score entry.
+                    Contact admin for login credentials
                   </p>
                 </form>
               </TabsContent>

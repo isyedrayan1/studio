@@ -73,7 +73,7 @@ interface TournamentContextType {
   setMatchLock: (id: string, locked: boolean) => Promise<void>;
   
   // Score actions
-  setScore: (matchId: string, teamId: string, kills: number, placement: number) => Promise<void>;
+  setScore: (matchId: string, teamId: string, kills: number, placement: number, userId?: string, dayType?: 'br-shortlist' | 'br-championship' | 'cs-bracket') => Promise<void>;
   
   // Bracket actions (Day 3 Knockout)
   initializeBracket: (dayId: string, teamIds: string[]) => Promise<void>;
@@ -228,8 +228,8 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   // Score actions
-  const setScore = useCallback(async (matchId: string, teamId: string, kills: number, placement: number) => {
-    return fbSetScore(matchId, teamId, kills, placement);
+  const setScore = useCallback(async (matchId: string, teamId: string, kills: number, placement: number, userId?: string, dayType?: 'br-shortlist' | 'br-championship' | 'cs-bracket') => {
+    return fbSetScore(matchId, teamId, kills, placement, userId, dayType);
   }, []);
 
   // Bracket actions

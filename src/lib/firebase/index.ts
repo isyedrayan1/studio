@@ -9,6 +9,17 @@ export { db, auth } from './config';
 // Collections
 export { COLLECTIONS, getCollectionPath } from './collections';
 
+// Associate account operations
+export {
+  getAssociateAccounts,
+  getAssociateAccountByLoginId,
+  validateAssociateLogin,
+  addAssociateAccount,
+  updateAssociateAccount,
+  deleteAssociateAccount,
+  subscribeToAssociateAccounts,
+} from './associate-accounts';
+
 // Team operations
 export {
   getTeams,
@@ -52,6 +63,9 @@ export {
   updateMatch,
   deleteMatch,
   setMatchLock,
+  lockMatch,
+  unlockMatch,
+  toggleMatchLock,
   subscribeToMatches,
   subscribeToMatchesByDay,
 } from './matches';
@@ -67,6 +81,9 @@ export {
   deleteScoresByMatch,
   subscribeToScores,
   subscribeToScoresByMatch,
+  lockScore,
+  unlockScore,
+  toggleScoreLock,
 } from './scores';
 
 // Bracket Match operations (Day 3 Knockout)

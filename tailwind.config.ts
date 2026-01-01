@@ -27,9 +27,9 @@ export default {
     },
     extend: {
       fontFamily: {
-        body: ['Bebas Neue', 'sans-serif'],
-        headline: ['Bebas Neue', 'sans-serif'],
-        code: ['monospace'],
+        sans: ['var(--font-rajdhani)', 'system-ui', 'sans-serif'],
+        display: ['var(--font-bebas-neue)', 'sans-serif'],
+        heading: ['var(--font-bebas-neue)', 'sans-serif'],
       },
       colors: {
         background: 'hsl(var(--background))',

@@ -27,21 +27,29 @@ import {
   GitBranch,
   ChevronDown,
   Settings,
+  UserCog,
+  Shield,
 } from "lucide-react";
 import { Logo } from "../icons/logo";
 import { Button } from "../ui/button";
-import { useTournament } from "@/contexts";
+import { useTournament, useAuth } from "@/contexts";
 
 export function AdminSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { days } = useTournament();
+  const { signOut } = useAuth();
 
   // Sort days by number
   const sortedDays = [...days].sort((a, b) => a.dayNumber - b.dayNumber);
   
   // Find CS Ranked days for showing bracket links
   const csDays = sortedDays.filter(d => d.type === "cs-bracket");
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.push("/login");
+  };
 
   return (
     <Sidebar>
@@ -174,6 +182,42 @@ export function AdminSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
 
+          {/* Leaderboard */}
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              onClick={() => router.push("/admin/leaderboard")}
+              isActive={pathname === "/admin/leaderboard"}
+              className="text-lg tracking-wider"
+            >
+              <Trophy className="h-5 w-5" />
+              <span>Leaderboard</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+
+          {/* Associates */}
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              onClick={() => router.push("/admin/associates")}
+              isActive={pathname === "/admin/associates"}
+              className="text-lg tracking-wider"
+            >
+              <UserCog className="h-5 w-5" />
+              <span>Associates</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+
+          {/* Admins */}
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              onClick={() => router.push("/admin/admins")}
+              isActive={pathname === "/admin/admins"}
+              className="text-lg tracking-wider"
+            >
+              <Shield className="h-5 w-5" />
+              <span>Admins</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+
           {/* Announcements */}
           <SidebarMenuItem>
             <SidebarMenuButton
@@ -188,9 +232,9 @@ export function AdminSidebar() {
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>
-        <Button onClick={() => router.push('/')} variant="outline" className="w-full justify-start gap-2 tracking-wider text-lg">
+        <Button onClick={handleSignOut} variant="outline" className="w-full justify-start gap-2 tracking-wider text-lg">
           <LogOut className="h-5 w-5" />
-          <span>Exit Admin</span>
+          <span>Sign Out</span>
         </Button>
       </SidebarFooter>
     </Sidebar>

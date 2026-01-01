@@ -87,17 +87,17 @@ export default function LeaderboardPage() {
       <div className="container py-12">
         <div className="flex flex-col items-center text-center mb-12">
           <Crown className="w-16 h-16 text-primary drop-shadow-[0_2px_4px_hsl(var(--primary)/0.5)]" />
-          <h1 className="text-6xl md:text-7xl font-bold tracking-wider mt-4">
-            Leaderboard
+          <h1 className="text-6xl md:text-7xl font-bold font-display mt-4">
+            LEADERBOARD
           </h1>
-          <p className="text-xl text-muted-foreground mt-2 tracking-widest">
-            Live rankings updated after each match.
+          <p className="text-xl text-muted-foreground mt-2">
+            Live rankings updated after each match
           </p>
         </div>
 
         <div className="flex justify-center gap-4 mb-8 flex-wrap">
           <Link href="/">
-            <Button variant="outline" className="gap-2">
+            <Button variant="outline" className="gap-2 font-semibold">
               <ArrowLeft className="h-4 w-4" />
               Back to Home
             </Button>

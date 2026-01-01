@@ -116,3 +116,19 @@ export function subscribeToMatchesByDay(dayId: string, callback: (matches: Match
     callback(matches);
   });
 }
+
+// Lock/unlock match
+export async function lockMatch(matchId: string): Promise<void> {
+  const docRef = doc(db, COLLECTIONS.MATCHES, matchId);
+  await updateDoc(docRef, { locked: true });
+}
+
+export async function unlockMatch(matchId: string): Promise<void> {
+  const docRef = doc(db, COLLECTIONS.MATCHES, matchId);
+  await updateDoc(docRef, { locked: false });
+}
+
+export async function toggleMatchLock(matchId: string, currentLocked: boolean): Promise<void> {
+  const docRef = doc(db, COLLECTIONS.MATCHES, matchId);
+  await updateDoc(docRef, { locked: !currentLocked });
+}

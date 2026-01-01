@@ -35,6 +35,9 @@ function docToScore(docData: any, docId: string): Score {
     teamId: docData.teamId,
     kills: docData.kills ?? 0,
     placement: docData.placement ?? 0,
+    locked: docData.locked ?? false,
+    lastUpdatedBy: docData.lastUpdatedBy,
+    lastUpdatedAt: docData.lastUpdatedAt?.toDate?.()?.toISOString(),
   };
 }
 
@@ -68,21 +71,38 @@ export async function getScore(matchId: string, teamId: string): Promise<Score |
 }
 
 // Set/update score (upsert)
+const CHAMPION_RUSH_THRESHOLD = 8; // Kills needed for Champion Rush badge
+
 export async function setScore(
   matchId: string,
   teamId: string,
   kills: number,
-  placement: number
+  placement: number,
+  userId?: string,
+  dayType?: 'br-shortlist' | 'br-championship' | 'cs-bracket'
 ): Promise<void> {
   const scoreId = getScoreId(matchId, teamId);
   const docRef = doc(db, COLLECTIONS.SCORES, scoreId);
   const existingScore = await getScore(matchId, teamId);
   
+  // Check if score is locked (associates cannot edit locked scores)
+  if (existingScore?.locked && userId !== 'admin') {
+    throw new Error('Score is locked by admin');
+  }
+  
+  // Calculate special flags
+  const isBooyah = placement === 1;
+  // Champion Rush ONLY applies to Day 2 (br-championship)
+  const hasChampionRush = dayType === 'br-championship' && kills >= CHAMPION_RUSH_THRESHOLD;
+  
   if (existingScore) {
     await updateDoc(docRef, {
       kills,
       placement,
-      updatedAt: serverTimestamp(),
+      isBooyah,
+      hasChampionRush,
+      lastUpdatedBy: userId || 'unknown',
+      lastUpdatedAt: serverTimestamp(),
     });
   } else {
     await setDoc(docRef, {
@@ -90,8 +110,12 @@ export async function setScore(
       teamId,
       kills,
       placement,
+      isBooyah,
+      hasChampionRush,
+      locked: false,
+      lastUpdatedBy: userId || 'unknown',
+      lastUpdatedAt: serverTimestamp(),
       createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
     });
   }
 }
@@ -124,4 +148,38 @@ export function subscribeToScoresByMatch(matchId: string, callback: (scores: Sco
     const scores = snapshot.docs.map(doc => docToScore(doc.data(), doc.id));
     callback(scores);
   });
+}
+
+// Lock score (admin only)
+export async function lockScore(matchId: string, teamId: string): Promise<void> {
+  const scoreId = getScoreId(matchId, teamId);
+  const docRef = doc(db, COLLECTIONS.SCORES, scoreId);
+  await updateDoc(docRef, {
+    locked: true,
+    lockedAt: serverTimestamp(),
+  });
+}
+
+// Unlock score (admin only)
+export async function unlockScore(matchId: string, teamId: string): Promise<void> {
+  const scoreId = getScoreId(matchId, teamId);
+  const docRef = doc(db, COLLECTIONS.SCORES, scoreId);
+  await updateDoc(docRef, {
+    locked: false,
+    unlockedAt: serverTimestamp(),
+  });
+}
+
+// Toggle score lock
+export async function toggleScoreLock(matchId: string, teamId: string): Promise<boolean> {
+  const score = await getScore(matchId, teamId);
+  if (!score) return false;
+  
+  if (score.locked) {
+    await unlockScore(matchId, teamId);
+    return false;
+  } else {
+    await lockScore(matchId, teamId);
+    return true;
+  }
 }

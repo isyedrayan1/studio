@@ -35,12 +35,17 @@ export default function AssociateLayout({
   };
 
   // Show loading while checking auth
-  if (loading || !isAssociate) {
+  if (loading) {
     return (
       <main className="flex-1 flex items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-muted-foreground" />
       </main>
     );
+  }
+
+  // Not authenticated or not associate - redirect handled by useEffect
+  if (!isAuthenticated || !isAssociate) {
+    return null;
   }
 
   return (

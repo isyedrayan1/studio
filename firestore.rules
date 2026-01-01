@@ -45,6 +45,17 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
     
+    // Bracket Matches - Read: public, Write: admin only
+    match /bracketMatches/{bracketMatchId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    // Associate Accounts - Read/Write: admin only
+    match /associateAccounts/{accountId} {
+      allow read, write: if isAdmin();
+    }
+    
     // Announcements - Read: public, Write: admin only
     match /announcements/{announcementId} {
       allow read: if true;

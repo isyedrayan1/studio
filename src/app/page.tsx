@@ -34,9 +34,12 @@ export default function Home() {
   const { teams, days, matches, scores, loading, getTeamById } = useTournament();
 
   // Calculate live stats
-  const totalTeams = teams.length;
-  const totalMatches = matches.length;
-  const completedMatches = matches.filter(m => m.status === "finished" || m.status === "locked").length;
+  const stats = {
+    totalTeams: teams.length,
+    totalMatches: matches.length,
+    totalScores: scores.length,
+    completedMatches: matches.filter(m => m.status === "finished" || m.status === "locked").length,
+  };
   const liveMatches = matches.filter(m => m.status === "live").length;
   const totalKills = scores.reduce((sum, s) => sum + s.kills, 0);
 
@@ -60,61 +63,116 @@ export default function Home() {
         {/* Announcement Banner */}
         <AnnouncementBanner />
         
-        {/* Hero Section */}
-        <section className="relative w-full min-h-[70vh] md:min-h-[80vh] flex items-center justify-center overflow-hidden">
+        {/* Hero Section - Free Fire Themed */}
+        <section className="relative w-full min-h-[90vh] flex items-center justify-center overflow-hidden">
           {heroImage && (
             <Image
               src={heroImage.imageUrl}
               alt={heroImage.description}
               fill
-              className="object-cover scale-105"
+              className="object-cover scale-110"
               priority
               data-ai-hint={heroImage.imageHint}
             />
           )}
-          {/* Gradient overlays */}
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-background/30" />
-          <div className="absolute inset-0 bg-gradient-to-r from-background/50 via-transparent to-background/50" />
+          {/* Strong gradient overlays for drama */}
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-background/80 via-transparent to-background/80" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_transparent_0%,_rgba(0,0,0,0.7)_100%)]" />
           
-          {/* Animated accent lines */}
-          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary to-transparent opacity-60" />
-          <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-accent to-transparent opacity-60" />
+          {/* Animated accent lines - Fire effect */}
+          <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-transparent via-primary to-transparent opacity-80 animate-pulse" />
+          <div className="absolute bottom-0 left-0 w-full h-2 bg-gradient-to-r from-transparent via-accent to-transparent opacity-80 animate-pulse" style={{ animationDelay: '0.5s' }} />
+          
+          {/* Side accent bars */}
+          <div className="absolute left-0 top-1/4 w-2 h-1/2 bg-gradient-to-b from-transparent via-primary to-transparent opacity-60" />
+          <div className="absolute right-0 top-1/4 w-2 h-1/2 bg-gradient-to-b from-transparent via-accent to-transparent opacity-60" />
           
           {/* Content */}
-          <div className="relative z-10 container flex flex-col items-center text-center gap-8 px-4 py-12">
-            {/* Live badge */}
+          <div className="relative z-10 container flex flex-col items-center text-center gap-10 px-4 py-16">
+            {/* Live badge with glow */}
             {liveMatches > 0 && (
-              <Badge variant="destructive" className="text-lg px-4 py-2 animate-pulse gap-2">
-                <span className="w-2 h-2 bg-white rounded-full animate-ping" />
-                {liveMatches} MATCH{liveMatches > 1 ? "ES" : ""} LIVE NOW
-              </Badge>
+              <div className="relative">
+                <div className="absolute inset-0 bg-primary blur-xl opacity-50 animate-pulse" />
+                <Badge variant="destructive" className="relative text-xl px-6 py-3 animate-pulse gap-2 shadow-2xl">
+                  <span className="w-3 h-3 bg-white rounded-full animate-ping" />
+                  🔥 {liveMatches} MATCH{liveMatches > 1 ? "ES" : ""} LIVE NOW
+                </Badge>
+              </div>
             )}
             
-            {/* Title */}
-            <div className="space-y-4">
-              <h1 className="text-7xl md:text-9xl lg:text-[12rem] font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-b from-primary via-primary to-primary/50 drop-shadow-2xl leading-none">
-                ARENA ACE
-              </h1>
-              <p className="text-2xl md:text-3xl lg:text-4xl tracking-[0.3em] text-foreground/90 font-light">
-                THE ULTIMATE FREE FIRE SHOWDOWN
-              </p>
+            {/* Title with dramatic styling */}
+            <div className="space-y-8">
+              <div className="space-y-4">
+                <div className="relative inline-block">
+                  <div className="absolute inset-0 bg-primary blur-3xl opacity-30" />
+                  <h1 className="relative font-display text-8xl md:text-[12rem] lg:text-[14rem] font-bold text-transparent bg-clip-text bg-gradient-to-b from-white via-primary to-primary drop-shadow-2xl leading-none tracking-wide">
+                    FFSAL
+                  </h1>
+                </div>
+                <div className="flex items-center justify-center gap-4">
+                  <div className="h-px w-16 bg-gradient-to-r from-transparent to-primary" />
+                  <p className="text-2xl md:text-3xl lg:text-4xl text-white/90 font-bold uppercase">
+                    Free Fire Students League
+                  </p>
+                  <div className="h-px w-16 bg-gradient-to-l from-transparent to-primary" />
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                <p className="text-xl md:text-2xl lg:text-3xl text-white font-semibold">
+                  ⚔️ Three Days of Intense Battle Royale Action ⚔️
+                </p>
+                <p className="text-lg md:text-xl text-accent font-semibold">
+                  Presented by <span className="text-primary">Thinkbotz Association</span> • AIML Department
+                </p>
+                <p className="text-base md:text-lg text-muted-foreground">
+                  Annamacharya Institute of Technology and Sciences, Kadapa-Chennur
+                </p>
+              </div>
             </div>
 
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 mt-6">
-              <Button asChild size="lg" className="text-xl tracking-widest px-8 py-6 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/30 group">
-                <Link href="/tournament" className="flex items-center gap-2">
-                  <Trophy className="h-5 w-5" />
-                  View Tournament
-                  <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                </Link>
-              </Button>
-              <Button asChild variant="outline" size="lg" className="text-xl tracking-widest px-8 py-6 border-accent text-accent hover:bg-accent hover:text-accent-foreground">
-                <Link href="/schedule" className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  Match Schedule
-                </Link>
-              </Button>
+            {/* CTA Buttons with glow effects */}
+            <div className="flex flex-col sm:flex-row gap-6 mt-12">
+              <div className="relative group">
+                <div className="absolute inset-0 bg-primary blur-xl opacity-0 group-hover:opacity-70 transition-opacity" />
+                <Button asChild size="lg" className="relative text-xl px-10 py-7 bg-primary hover:bg-primary/90 shadow-2xl group font-bold border-2 border-primary/50">
+                  <Link href="/tournament" className="flex items-center gap-3">
+                    <Trophy className="h-6 w-6" />
+                    ENTER TOURNAMENT
+                    <ChevronRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                  </Link>
+                </Button>
+              </div>
+              <div className="relative group">
+                <div className="absolute inset-0 bg-accent blur-xl opacity-0 group-hover:opacity-70 transition-opacity" />
+                <Button asChild variant="outline" size="lg" className="relative text-xl px-10 py-7 border-2 border-accent text-accent hover:bg-accent hover:text-background font-bold shadow-xl">
+                  <Link href="/schedule" className="flex items-center gap-3">
+                    <Calendar className="h-6 w-6" />
+                    VIEW SCHEDULE
+                  </Link>
+                </Button>
+              </div>
+            </div>
+            
+            {/* Tournament Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-16 w-full max-w-4xl">
+              <div className="text-center p-4 bg-background/50 backdrop-blur-sm rounded-lg border border-primary/30">
+                <div className="text-4xl md:text-5xl font-bold text-primary">3</div>
+                <div className="text-sm md:text-base text-muted-foreground mt-1">Days</div>
+              </div>
+              <div className="text-center p-4 bg-background/50 backdrop-blur-sm rounded-lg border border-accent/30">
+                <div className="text-4xl md:text-5xl font-bold text-accent">{stats.totalTeams}</div>
+                <div className="text-sm md:text-base text-muted-foreground mt-1">Teams</div>
+              </div>
+              <div className="text-center p-4 bg-background/50 backdrop-blur-sm rounded-lg border border-primary/30">
+                <div className="text-4xl md:text-5xl font-bold text-primary">{stats.totalMatches}</div>
+                <div className="text-sm md:text-base text-muted-foreground mt-1">Matches</div>
+              </div>
+              <div className="text-center p-4 bg-background/50 backdrop-blur-sm rounded-lg border border-accent/30">
+                <div className="text-4xl md:text-5xl font-bold text-accent">{stats.totalScores}</div>
+                <div className="text-sm md:text-base text-muted-foreground mt-1">Scores</div>
+              </div>
             </div>
           </div>
         </section>
@@ -125,13 +183,13 @@ export default function Home() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
               <StatCard 
                 icon={<Users className="h-8 w-8 text-primary" />}
-                value={totalTeams}
+                value={stats.totalTeams}
                 label="Teams"
                 loading={loading}
               />
               <StatCard 
                 icon={<Swords className="h-8 w-8 text-accent" />}
-                value={`${completedMatches}/${totalMatches}`}
+                value={`${stats.completedMatches}/${stats.totalMatches}`}
                 label="Matches Played"
                 loading={loading}
               />
@@ -161,7 +219,7 @@ export default function Home() {
                 <h2 className="text-5xl md:text-6xl font-bold tracking-wider">
                   CURRENT LEADERS
                 </h2>
-                <p className="text-xl text-muted-foreground mt-3 tracking-widest">
+                <p className="text-xl text-muted-foreground mt-3">
                   Top performers in the tournament
                 </p>
               </div>
@@ -197,7 +255,7 @@ export default function Home() {
                         <div className="text-6xl font-bold text-muted-foreground/30 mb-2">
                           #{idx + 1}
                         </div>
-                        <h3 className="text-3xl font-bold tracking-wider mb-1">
+                        <h3 className="text-3xl font-bold mb-1">
                           {entry.team?.name || "Unknown"}
                         </h3>
                         {entry.team?.tag && (
@@ -214,7 +272,7 @@ export default function Home() {
               </div>
 
               <div className="flex justify-center mt-10">
-                <Button asChild variant="outline" size="lg" className="gap-2 text-lg">
+                <Button asChild variant="outline" size="lg" className="gap-2 text-lg font-semibold">
                   <Link href="/tournament">
                     View Full Leaderboard
                     <ArrowRight className="h-4 w-4" />
@@ -230,10 +288,10 @@ export default function Home() {
           <div className="container">
             <div className="flex flex-col items-center text-center mb-12">
               <Flame className="h-12 w-12 text-primary mb-4" />
-              <h2 className="text-5xl md:text-6xl font-bold tracking-wider">
+              <h2 className="text-5xl md:text-6xl font-bold font-display">
                 TOURNAMENT STAGES
               </h2>
-              <p className="text-xl text-muted-foreground mt-3 tracking-widest">
+              <p className="text-xl text-muted-foreground mt-3">
                 Three days of intense competition
               </p>
             </div>
@@ -272,7 +330,7 @@ export default function Home() {
                           {day.dayNumber.toString().padStart(2, "0")}
                         </span>
                       </div>
-                      <CardTitle className="text-3xl tracking-wider mt-2">
+                      <CardTitle className="text-3xl mt-2">
                         {day.name}
                       </CardTitle>
                     </CardHeader>
@@ -309,7 +367,7 @@ export default function Home() {
             </div>
 
             <div className="flex justify-center mt-10">
-              <Button asChild size="lg" className="gap-2 text-lg">
+              <Button asChild size="lg" className="gap-2 text-lg font-semibold">
                 <Link href="/tournament">
                   <Trophy className="h-5 w-5" />
                   Enter Tournament Hub
@@ -318,6 +376,129 @@ export default function Home() {
             </div>
           </div>
         </section>
+
+        {/* Full Leaderboard Section - Free Fire Themed */}
+        {topTeams.length > 0 && (
+          <section className="w-full py-20 bg-gradient-to-b from-background via-background/95 to-background">
+            <div className="container">
+              <div className="flex flex-col items-center text-center mb-16">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-primary blur-2xl opacity-20" />
+                  <Trophy className="relative h-16 w-16 text-primary mb-6" />
+                </div>
+                <h2 className="text-6xl md:text-7xl font-bold mb-4">
+                  LIVE LEADERBOARD
+                </h2>
+                <p className="text-2xl text-accent font-semibold">
+                  Top Teams Battle for Glory
+                </p>
+                <div className="flex items-center gap-4 mt-4">
+                  <div className="h-px w-24 bg-gradient-to-r from-transparent to-primary" />
+                  <span className="text-lg text-muted-foreground">Updated Live</span>
+                  <div className="h-px w-24 bg-gradient-to-l from-transparent to-primary" />
+                </div>
+              </div>
+
+              {/* Top 3 Podium */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto mb-16">
+                {topTeams.map((entry, idx) => {
+                  const team = entry.team;
+                  const points = entry.points;
+                  const rankData = [
+                    { 
+                      icon: <Crown className="h-12 w-12 text-yellow-400" />,
+                      title: "CHAMPION",
+                      borderColor: "border-yellow-500",
+                      bgGradient: "from-yellow-500/20 via-yellow-600/10 to-transparent",
+                      textColor: "text-yellow-400",
+                      scale: "md:scale-110 md:-translate-y-8",
+                      shadow: "shadow-2xl shadow-yellow-500/20"
+                    },
+                    {
+                      icon: <Medal className="h-10 w-10 text-gray-300" />,
+                      title: "RUNNER UP",
+                      borderColor: "border-gray-400",
+                      bgGradient: "from-gray-400/20 via-gray-500/10 to-transparent",
+                      textColor: "text-gray-300",
+                      scale: "md:scale-105",
+                      shadow: "shadow-xl shadow-gray-400/10"
+                    },
+                    {
+                      icon: <Medal className="h-10 w-10 text-amber-600" />,
+                      title: "3RD PLACE",
+                      borderColor: "border-amber-600",
+                      bgGradient: "from-amber-600/20 via-amber-700/10 to-transparent",
+                      textColor: "text-amber-600",
+                      scale: "md:scale-105",
+                      shadow: "shadow-xl shadow-amber-600/10"
+                    }
+                  ][idx];
+
+                  return (
+                    <Card 
+                      key={team?.id || idx}
+                      className={cn(
+                        "relative overflow-hidden bg-gradient-to-br border-2 transition-all hover:scale-105",
+                        rankData.borderColor,
+                        rankData.bgGradient,
+                        rankData.scale,
+                        rankData.shadow
+                      )}
+                    >
+                      {/* Glowing top border */}
+                      <div className={cn("absolute top-0 left-0 right-0 h-1", rankData.borderColor.replace('border-', 'bg-'), "opacity-80")} />
+                      
+                      {/* Rank Icon */}
+                      <div className="absolute top-6 right-6">
+                        {rankData.icon}
+                      </div>
+                      
+                      <CardContent className="pt-12 pb-8 px-8 text-center">
+                        <div className="mb-4">
+                          <Badge variant="outline" className={cn("text-xs mb-2", rankData.textColor, rankData.borderColor)}>
+                            {rankData.title}
+                          </Badge>
+                          <div className={cn("text-8xl font-bold mb-2", rankData.textColor)}>
+                            #{idx + 1}
+                          </div>
+                        </div>
+                        
+                        <h3 className="text-3xl font-bold mb-2">
+                          {team?.name || "Unknown"}
+                        </h3>
+                        
+                        {team?.tag && (
+                          <Badge variant="secondary" className="mb-4 text-base px-4 py-1">
+                            {team.tag}
+                          </Badge>
+                        )}
+                        
+                        <div className={cn("mt-6 text-5xl font-bold", rankData.textColor)}>
+                          {points}
+                          <span className="text-xl text-muted-foreground ml-2">pts</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+
+              {/* View Full Button */}
+              <div className="flex justify-center">
+                <div className="relative group">
+                  <div className="absolute inset-0 bg-primary blur-xl opacity-0 group-hover:opacity-70 transition-opacity" />
+                  <Button asChild variant="outline" size="lg" className="relative gap-3 text-xl px-12 py-8 border-2 border-primary text-primary hover:bg-primary hover:text-white font-bold shadow-2xl">
+                    <Link href="/tournament">
+                      <Trophy className="h-6 w-6" />
+                      VIEW FULL LEADERBOARD
+                      <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Quick Links */}
         <section className="w-full py-16">
@@ -330,7 +511,7 @@ export default function Home() {
                       <Calendar className="h-8 w-8" />
                     </div>
                     <div className="flex-1">
-                      <h3 className="text-2xl font-bold tracking-wider mb-1">Match Schedule</h3>
+                      <h3 className="text-2xl font-bold mb-1">Match Schedule</h3>
                       <p className="text-muted-foreground">View all upcoming matches and times</p>
                     </div>
                     <ChevronRight className="h-6 w-6 text-muted-foreground group-hover:text-accent group-hover:translate-x-1 transition-all" />
@@ -366,12 +547,12 @@ function StatCard({
       </div>
       <div>
         <div className={cn(
-          "font-bold tracking-wider",
+          "font-bold",
           isText ? "text-xl md:text-2xl" : "text-3xl md:text-4xl"
         )}>
           {loading ? "—" : value}
         </div>
-        <div className="text-sm text-muted-foreground tracking-wider uppercase">
+        <div className="text-sm text-muted-foreground uppercase">
           {label}
         </div>
       </div>

@@ -162,7 +162,7 @@ export default function TournamentPage() {
       <main className="flex-1 w-full flex items-center justify-center min-h-[60vh]">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-16 w-16 animate-spin text-primary" />
-          <p className="text-xl text-muted-foreground tracking-wider">Loading tournament data...</p>
+          <p className="text-xl text-muted-foreground">Loading tournament data...</p>
         </div>
       </main>
     );
@@ -177,18 +177,18 @@ export default function TournamentPage() {
             <Trophy className="w-16 h-16 text-primary drop-shadow-[0_2px_4px_hsl(var(--primary)/0.5)]" />
             <Flame className="absolute -top-2 -right-2 w-6 h-6 text-orange-500 animate-pulse" />
           </div>
-          <h1 className="text-5xl md:text-7xl font-bold tracking-wider mt-4">
-            TOURNAMENT HUB
+          <h1 className="text-5xl md:text-7xl font-bold font-display mt-4">
+            FFSAL TOURNAMENT
           </h1>
-          <p className="text-xl text-muted-foreground mt-2 tracking-widest">
-            Live standings and match results
+          <p className="text-xl text-muted-foreground mt-2">
+            Free Fire Students Association League
           </p>
         </div>
 
         {/* Back button */}
         <div className="flex justify-center mb-8">
           <Link href="/">
-            <Button variant="outline" className="gap-2">
+            <Button variant="outline" className="gap-2 font-semibold">
               <ArrowLeft className="h-4 w-4" />
               Back to Home
             </Button>
@@ -215,7 +215,7 @@ export default function TournamentPage() {
                     key={day.id}
                     value={day.id}
                     className={cn(
-                      "relative px-6 py-4 text-xl tracking-wider data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg border-2 border-transparent",
+                      "relative px-6 py-4 text-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg border-2 border-transparent",
                       "data-[state=active]:border-primary",
                       isActive && "ring-2 ring-primary/50 ring-offset-2 ring-offset-background"
                     )}
@@ -251,7 +251,7 @@ export default function TournamentPage() {
                           )}
                         </div>
                         <div>
-                          <h2 className="text-3xl font-bold tracking-wider">{day.name}</h2>
+                          <h2 className="text-3xl font-bold">{day.name}</h2>
                           <p className="text-muted-foreground">
                             {day.type === "br-shortlist" && "Battle Royale - Kill-based Qualification"}
                             {day.type === "br-championship" && "Battle Royale - Champion Rush"}
@@ -280,7 +280,7 @@ export default function TournamentPage() {
                   <>
                     {/* Match Selector */}
                     <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                      <h3 className="text-2xl font-bold tracking-wider">Leaderboard</h3>
+                      <h3 className="text-2xl font-bold">Leaderboard</h3>
                       <Select value={selectedMatchId} onValueChange={setSelectedMatchId}>
                         <SelectTrigger className="w-[220px]">
                           <SelectValue placeholder="Select view" />
@@ -315,12 +315,12 @@ export default function TournamentPage() {
                             {selectedMatchId === "overall" ? (
                               <>
                                 <Trophy className="h-6 w-6 text-primary" />
-                                <span className="text-2xl tracking-wider">Overall Day {day.dayNumber} Standings</span>
+                                <span className="text-2xl">Overall Day {day.dayNumber} Standings</span>
                               </>
                             ) : (
                               <>
                                 <Swords className="h-6 w-6 text-primary" />
-                                <span className="text-2xl tracking-wider">
+                                <span className="text-2xl">
                                   Match {dayMatches.find(m => m.id === selectedMatchId)?.matchNumber} Results
                                 </span>
                               </>
@@ -343,7 +343,7 @@ export default function TournamentPage() {
                           ) : (
                             <Table>
                               <TableHeader>
-                                <TableRow className="text-lg tracking-wider hover:bg-transparent">
+                                <TableRow className="text-lg hover:bg-transparent">
                                   <TableHead className="w-[80px] text-center">Rank</TableHead>
                                   <TableHead>Team</TableHead>
                                   <TableHead className="text-center">Matches</TableHead>
@@ -424,7 +424,7 @@ export default function TournamentPage() {
                           ) : (
                             <Table>
                               <TableHeader>
-                                <TableRow className="text-lg tracking-wider hover:bg-transparent">
+                                <TableRow className="text-lg hover:bg-transparent">
                                   <TableHead className="w-[80px] text-center">Rank</TableHead>
                                   <TableHead>Team</TableHead>
                                   <TableHead className="text-center">Placement</TableHead>
@@ -646,7 +646,7 @@ function BracketView({ dayId, bracketMatches, getTeamById }: BracketViewProps) {
           <CardContent className="flex items-center justify-center gap-4 py-8">
             <Crown className="h-12 w-12 text-yellow-500" />
             <div className="text-center">
-              <p className="text-sm text-muted-foreground uppercase tracking-widest">🏆 CHAMPION 🏆</p>
+              <p className="text-sm text-muted-foreground uppercase">🏆 CHAMPION 🏆</p>
               <h2 className="text-5xl font-bold">{champion.name}</h2>
               {champion.tag && <Badge className="mt-2 text-lg">{champion.tag}</Badge>}
             </div>

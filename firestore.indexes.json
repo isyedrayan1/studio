@@ -1,0 +1,37 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "bracketMatches",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "round",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "matchInRound",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "bracketMatches",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "dayId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "round",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "matchInRound",
+          "order": "ASCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

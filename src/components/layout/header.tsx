@@ -29,18 +29,23 @@ export function Header() {
         </div>
         <Link href="/" className="mr-8 flex items-center gap-2">
           <Logo className="h-8 w-8 text-primary" />
-          <span className="hidden text-2xl tracking-wider sm:inline-block">
-            Arena Ace
-          </span>
+          <div className="hidden sm:block">
+            <div className="font-display text-2xl leading-tight text-primary">
+              FFSAL
+            </div>
+            <div className="text-[10px] font-normal text-muted-foreground -mt-1 tracking-normal">
+              Free Fire Students League
+            </div>
+          </div>
         </Link>
-        <nav className="hidden md:flex items-center gap-6 text-lg tracking-wider">
+        <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
           {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
                 "transition-colors hover:text-primary",
-                pathname === item.href ? "text-primary" : "text-muted-foreground"
+                pathname === item.href ? "text-primary font-semibold" : "text-muted-foreground"
               )}
             >
               {item.label}
@@ -48,7 +53,7 @@ export function Header() {
           ))}
         </nav>
         <div className="flex flex-1 items-center justify-end">
-          <Button asChild variant="outline" className="border-accent text-accent hover:bg-accent hover:text-accent-foreground tracking-wider">
+          <Button asChild variant="outline" className="border-accent text-accent hover:bg-accent hover:text-accent-foreground text-sm font-medium">
             <Link href="/login">Admin Login</Link>
           </Button>
         </div>

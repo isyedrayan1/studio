@@ -84,6 +84,7 @@ export type Match = {
   groupIds: string[]; // Groups that combine for this match
   teamIds: string[]; // Direct team IDs participating in this match (derived from groups)
   status: 'upcoming' | 'live' | 'finished' | 'locked';
+  locked?: boolean; // If true, no one can submit/change scores
   createdAt: string;
 };
 
@@ -96,7 +97,12 @@ export type Score = {
   teamId: string;
   kills: number;
   placement: number; // 1 = first, 12 = last
+  isBooyah?: boolean; // True if placement === 1 (winner)
+  hasChampionRush?: boolean; // True if kills >= 8 (Champion Rush badge for Day 2)
   totalPoints?: number; // Calculated: kills * killPoints + placementPoints[placement]
+  locked?: boolean; // If true, associates cannot edit (admin only)
+  lastUpdatedBy?: string; // User ID who last updated
+  lastUpdatedAt?: string; // Timestamp of last update
 };
 
 /**
@@ -111,14 +117,28 @@ export type Announcement = {
 };
 
 /**
- * User - Admin or Associate
+ * User - Admin user (Firebase Auth based)
  */
 export type User = {
   id: string;
   email: string;
   name: string;
-  role: 'admin' | 'associate';
+  role: 'admin';
   createdAt: string;
+};
+
+/**
+ * AssociateAccount - Associate login credentials (created by admin)
+ */
+export type AssociateAccount = {
+  id: string;
+  loginId: string; // Unique login identifier (e.g., "TEAM001")
+  password: string; // Plain text password (simple for associates)
+  teamId: string; // Assigned team ID
+  teamName?: string; // For display
+  active: boolean; // Can be disabled by admin
+  createdAt: string;
+  createdBy: string; // Admin who created it
 };
 
 // ============================================

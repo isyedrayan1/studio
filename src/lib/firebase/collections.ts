@@ -14,6 +14,7 @@ export const COLLECTIONS = {
   ANNOUNCEMENTS: 'announcements',
   USERS: 'users',
   SETTINGS: 'settings',
+  ASSOCIATE_ACCOUNTS: 'associateAccounts',
 } as const;
 
 // Collection paths helper

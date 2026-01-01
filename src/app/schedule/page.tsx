@@ -29,18 +29,18 @@ export default function SchedulePage() {
       <div className="container py-12">
         <div className="flex flex-col items-center text-center mb-12">
           <CalendarDays className="w-16 h-16 text-primary drop-shadow-[0_2px_4px_hsl(var(--primary)/0.5)]" />
-          <h1 className="text-6xl md:text-7xl font-bold tracking-wider mt-4">
-            Match Schedule
+          <h1 className="text-6xl md:text-7xl font-bold font-display mt-4">
+            MATCH SCHEDULE
           </h1>
-          <p className="text-xl text-muted-foreground mt-2 tracking-widest">
-            All the action, all the dates. Don&apos;t miss a single match.
+          <p className="text-xl text-muted-foreground mt-2">
+            Three days of intense Free Fire competition
           </p>
         </div>
 
         {sortedDays.length === 0 ? (
           <div className="text-center py-16">
             <Swords className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
-            <h3 className="text-2xl tracking-wider text-muted-foreground">No Schedule Yet</h3>
+            <h3 className="text-2xl text-muted-foreground">No Schedule Yet</h3>
             <p className="text-lg text-muted-foreground/70 mt-2">
               Match schedule will appear once the tournament is set up.
             </p>
@@ -55,7 +55,7 @@ export default function SchedulePage() {
                 return (
                   <section key={day.id}>
                     <div className="flex items-center gap-4 mb-6">
-                      <h2 className="text-5xl font-bold tracking-wider text-accent">
+                      <h2 className="text-5xl font-bold text-accent">
                         {day.name}
                       </h2>
                       <Badge variant="secondary" className="text-lg">Knockout</Badge>
@@ -126,7 +126,7 @@ export default function SchedulePage() {
               return (
                 <section key={day.id}>
                   <div className="flex items-center gap-4 mb-6">
-                    <h2 className="text-5xl font-bold tracking-wider text-accent">
+                    <h2 className="text-5xl font-bold text-accent">
                       {day.name}
                     </h2>
                     <Badge variant="outline" className="text-lg">
@@ -147,7 +147,7 @@ export default function SchedulePage() {
                         <Card key={match.id} className="flex flex-col h-[160px]">
                           <CardHeader className="pb-2">
                             <div className="flex justify-between items-center">
-                              <CardTitle className="text-3xl tracking-wider flex items-center gap-3">
+                              <CardTitle className="text-3xl flex items-center gap-3">
                                 <Swords className="h-7 w-7 flex-shrink-0 text-primary" />
                                 <span>Match {match.matchNumber}</span>
                               </CardTitle>
@@ -159,7 +159,7 @@ export default function SchedulePage() {
                                     ? "secondary"
                                     : "outline"
                                 }
-                                className="text-md tracking-wider flex-shrink-0"
+                                className="text-md flex-shrink-0"
                               >
                                 {match.status}
                               </Badge>

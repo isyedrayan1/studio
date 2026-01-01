@@ -3,31 +3,32 @@
 // ============================================
 // AUTHENTICATION CONTEXT
 // ============================================
-// Provides auth state and user profile throughout the app
+// Provides auth state for admins (Firebase Auth + Firestore) and associates (Firestore)
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { User as FirebaseUser } from 'firebase/auth';
-import type { User } from '@/lib/types';
+import type { User, AssociateAccount } from '@/lib/types';
 import {
   signIn as fbSignIn,
-  register as fbRegister,
   signOut as fbSignOut,
   onAuthChange,
   getUserProfile,
+  validateAssociateLogin,
 } from '@/lib/firebase';
 
 interface AuthContextType {
   // State
   firebaseUser: FirebaseUser | null;
   userProfile: User | null;
+  associateAccount: AssociateAccount | null;
   loading: boolean;
   isAuthenticated: boolean;
   isAdmin: boolean;
   isAssociate: boolean;
   
   // Actions
-  signIn: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name: string) => Promise<void>;
+  signInAdmin: (email: string, password: string) => Promise<void>;
+  signInAssociate: (loginId: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   
   // Role checks
@@ -40,21 +41,31 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [userProfile, setUserProfile] = useState<User | null>(null);
+  const [associateAccount, setAssociateAccount] = useState<AssociateAccount | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Listen to auth state changes
+  // Restore associate session from localStorage
+  useEffect(() => {
+    const storedAssociate = localStorage.getItem('associateAccount');
+    if (storedAssociate) {
+      try {
+        const account = JSON.parse(storedAssociate);
+        setAssociateAccount(account);
+      } catch (e) {
+        localStorage.removeItem('associateAccount');
+      }
+    }
+  }, []);
+
+  // Listen to Firebase Auth state changes
   useEffect(() => {
     const unsubscribe = onAuthChange(async (user) => {
       setFirebaseUser(user);
       
       if (user) {
-        try {
-          const profile = await getUserProfile(user.uid);
-          setUserProfile(profile);
-        } catch (error) {
-          console.error('Error fetching user profile:', error);
-          setUserProfile(null);
-        }
+        // Load user profile from Firestore
+        const profile = await getUserProfile(user.uid);
+        setUserProfile(profile);
       } else {
         setUserProfile(null);
       }
@@ -65,53 +76,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  // Sign in
-  const signIn = useCallback(async (email: string, password: string) => {
-    setLoading(true);
-    try {
-      await fbSignIn(email, password);
-    } finally {
-      setLoading(false);
-    }
+  // Sign in as admin (Firebase Auth)
+  const signInAdmin = useCallback(async (email: string, password: string) => {
+    await fbSignIn(email, password);
+    // Auth state will update via onAuthChange
   }, []);
 
-  // Register new user (creates associate by default)
-  const register = useCallback(async (email: string, password: string, name: string) => {
-    setLoading(true);
-    try {
-      await fbRegister(email, password, name);
-    } finally {
-      setLoading(false);
+  // Sign in as associate (Firestore validation)
+  const signInAssociate = useCallback(async (loginId: string, password: string) => {
+    const account = await validateAssociateLogin(loginId, password);
+    if (!account) {
+      throw new Error('Invalid login credentials or account is disabled');
     }
+    setAssociateAccount(account);
+    localStorage.setItem('associateAccount', JSON.stringify(account));
+    setLoading(false);
   }, []);
 
   // Sign out
   const signOut = useCallback(async () => {
     setLoading(true);
     try {
-      await fbSignOut();
+      if (firebaseUser) {
+        await fbSignOut();
+      }
       setUserProfile(null);
+      setAssociateAccount(null);
+      localStorage.removeItem('associateAccount');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [firebaseUser]);
 
   // Computed values
-  const isAuthenticated = !!firebaseUser;
-  const isAdmin = userProfile?.role === 'admin';
-  const isAssociate = userProfile?.role === 'associate';
+  const isAuthenticated = !!firebaseUser || !!associateAccount;
+  const isAdmin = !!userProfile && userProfile.role === 'admin';
+  const isAssociate = !!associateAccount;
   const canEdit = isAdmin || isAssociate;
   const canDelete = isAdmin;
 
   const value: AuthContextType = {
     firebaseUser,
     userProfile,
+    associateAccount,
     loading,
     isAuthenticated,
     isAdmin,
     isAssociate,
-    signIn,
-    register,
+    signInAdmin,
+    signInAssociate,
     signOut,
     canEdit,
     canDelete,

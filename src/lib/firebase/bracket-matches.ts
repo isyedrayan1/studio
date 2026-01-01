@@ -26,27 +26,31 @@ const bracketMatchesRef = collection(db, COLLECTIONS.BRACKET_MATCHES);
 
 // Get all bracket matches
 export async function getBracketMatches(): Promise<BracketMatch[]> {
-  const q = query(bracketMatchesRef, orderBy('round', 'asc'), orderBy('matchInRound', 'asc'));
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({
+  const snapshot = await getDocs(bracketMatchesRef);
+  const matches = snapshot.docs.map(doc => ({
     id: doc.id,
     ...doc.data(),
   })) as BracketMatch[];
+  // Sort in memory instead of using Firebase indexes
+  return matches.sort((a, b) => {
+    if (a.round !== b.round) return a.round - b.round;
+    return a.matchInRound - b.matchInRound;
+  });
 }
 
 // Get bracket matches by day
 export async function getBracketMatchesByDay(dayId: string): Promise<BracketMatch[]> {
-  const q = query(
-    bracketMatchesRef, 
-    where('dayId', '==', dayId), 
-    orderBy('round', 'asc'), 
-    orderBy('matchInRound', 'asc')
-  );
+  const q = query(bracketMatchesRef, where('dayId', '==', dayId));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({
+  const matches = snapshot.docs.map(doc => ({
     id: doc.id,
     ...doc.data(),
   })) as BracketMatch[];
+  // Sort in memory instead of using Firebase indexes
+  return matches.sort((a, b) => {
+    if (a.round !== b.round) return a.round - b.round;
+    return a.matchInRound - b.matchInRound;
+  });
 }
 
 // Helper to remove undefined values
@@ -161,13 +165,17 @@ export async function setWinnerAndAdvance(
 
 // Real-time listener for bracket matches
 export function subscribeToBracketMatches(callback: (matches: BracketMatch[]) => void): Unsubscribe {
-  const q = query(bracketMatchesRef, orderBy('round', 'asc'), orderBy('matchInRound', 'asc'));
-  return onSnapshot(q, (snapshot) => {
+  return onSnapshot(bracketMatchesRef, (snapshot) => {
     const matches = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data(),
     })) as BracketMatch[];
-    callback(matches);
+    // Sort in memory instead of using Firebase indexes
+    const sorted = matches.sort((a, b) => {
+      if (a.round !== b.round) return a.round - b.round;
+      return a.matchInRound - b.matchInRound;
+    });
+    callback(sorted);
   }, (error) => {
     console.error('Bracket matches subscription error:', error);
   });

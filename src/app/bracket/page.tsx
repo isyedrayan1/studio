@@ -129,10 +129,10 @@ export default function PublicBracketPage() {
         {/* Header */}
         <div className="flex flex-col items-center text-center mb-12">
           <Trophy className="w-16 h-16 text-primary drop-shadow-[0_2px_4px_hsl(var(--primary)/0.5)]" />
-          <h1 className="text-6xl md:text-7xl font-bold tracking-wider mt-4">
-            {csDay ? `Day ${csDay.dayNumber}: ${csDay.name}` : "CS Ranked"}
+          <h1 className="text-6xl md:text-7xl font-bold font-display mt-4">
+            {csDay ? `DAY ${csDay.dayNumber}: ${csDay.name.toUpperCase()}` : "CS RANKED"}
           </h1>
-          <p className="text-xl text-muted-foreground mt-2 tracking-widest">
+          <p className="text-xl text-muted-foreground mt-2">
             Knockout Bracket — 8 Teams → 1 Champion
           </p>
           {hasLiveMatch && (
@@ -165,7 +165,7 @@ export default function PublicBracketPage() {
             <CardContent className="flex items-center justify-center gap-4 py-8">
               <Crown className="h-12 w-12 text-yellow-500" />
               <div className="text-center">
-                <p className="text-sm text-muted-foreground uppercase tracking-widest">🏆 CHAMPION 🏆</p>
+                <p className="text-sm text-muted-foreground uppercase">🏆 CHAMPION 🏆</p>
                 <h2 className="text-5xl font-bold">{champion.name}</h2>
                 {champion.tag && <Badge className="mt-2 text-lg">{champion.tag}</Badge>}
               </div>

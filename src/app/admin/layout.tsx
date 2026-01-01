@@ -26,12 +26,17 @@ export default function AdminLayout({
   }, [isAuthenticated, isAdmin, isAssociate, loading, router]);
 
   // Show loading while checking auth
-  if (loading || !isAdmin) {
+  if (loading) {
     return (
       <main className="flex-1 flex items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-muted-foreground" />
       </main>
     );
+  }
+
+  // Not authenticated or not admin - redirect handled by useEffect
+  if (!isAuthenticated || !isAdmin) {
+    return null;
   }
 
   return (

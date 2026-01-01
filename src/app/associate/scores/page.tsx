@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
+
+import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -25,57 +26,101 @@ import {
   Loader2,
   AlertCircle,
   Save,
+  Lock,
+  CheckCircle,
 } from "lucide-react";
-import { useTournament } from "@/contexts";
+import { useTournament, useAuth } from "@/contexts";
 import { useToast } from "@/hooks/use-toast";
 
-// Default placement points (can be moved to tournament settings later)
+// Free Fire BR Scoring System
 const PLACEMENT_POINTS = [12, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0];
 const KILL_POINTS = 1;
 
 export default function AssociateScoresPage() {
   const { matches, days, scores, loading, error, setScore, getTeamById } = useTournament();
+  const { associateAccount, userProfile } = useAuth();
   const { toast } = useToast();
 
-  // Selection
   const [selectedDayId, setSelectedDayId] = useState<string>("");
   const [selectedMatchId, setSelectedMatchId] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
 
-  // Local score edits - keyed by matchId to avoid stale state
-  const [localScores, setLocalScores] = useState<Record<string, Record<string, { kills: number; placement: number }>>>({});
+  // Local score edits (only for my team)
+  const [localScore, setLocalScore] = useState<{ kills: number; placement: number } | null>(null);
 
-  const filteredMatches = selectedDayId ? matches.filter(m => m.dayId === selectedDayId) : [];
+  const myTeamId = associateAccount?.teamId;
+  const myTeam = myTeamId ? getTeamById(myTeamId) : null;
+
+  // Filter matches that include my team
+  const myMatches = useMemo(() => {
+    if (!myTeamId) return [];
+    return matches.filter(m => m.teamIds.includes(myTeamId));
+  }, [matches, myTeamId]);
+
+  const filteredMatches = selectedDayId ? myMatches.filter(m => m.dayId === selectedDayId) : myMatches;
+  const selectedDay = days.find(d => d.id === selectedDayId);
   const selectedMatch = matches.find(m => m.id === selectedMatchId);
 
-  // Get or initialize local scores for current match
-  const currentMatchScores = useMemo(() => {
-    if (!selectedMatch) return {};
+  // Auto-select active day and live match
+  useEffect(() => {
+    if (!selectedDayId && days.length > 0) {
+      const activeDay = days.find(d => d.status === "active");
+      if (activeDay) {
+        const activeDayMatches = myMatches.filter(m => m.dayId === activeDay.id);
+        if (activeDayMatches.length > 0) {
+          setSelectedDayId(activeDay.id);
+        }
+      } else if (myMatches.length > 0) {
+        setSelectedDayId(myMatches[0].dayId);
+      }
+    }
+  }, [days, selectedDayId, myMatches]);
+
+  useEffect(() => {
+    if (selectedDayId && !selectedMatchId && filteredMatches.length > 0) {
+      const liveMatch = filteredMatches.find(m => m.status === "live");
+      if (liveMatch) {
+        setSelectedMatchId(liveMatch.id);
+      } else if (filteredMatches.length > 0) {
+        setSelectedMatchId(filteredMatches[0].id);
+      }
+    }
+  }, [selectedDayId, selectedMatchId, filteredMatches]);
+
+  // Get or initialize local score for my team
+  const currentScore = useMemo(() => {
+    if (!selectedMatch || !myTeamId) return null;
     
-    // If we have local edits, use them
-    if (localScores[selectedMatchId]) {
-      return localScores[selectedMatchId];
+    // If we have local edit, use it
+    if (localScore) {
+      return localScore;
     }
     
     // Otherwise initialize from server data
-    const initial: Record<string, { kills: number; placement: number }> = {};
-    selectedMatch.teamIds.forEach((teamId, idx) => {
-      const existing = scores.find(s => s.matchId === selectedMatchId && s.teamId === teamId);
-      initial[teamId] = {
-        kills: existing?.kills ?? 0,
-        placement: existing?.placement ?? (idx + 1),
-      };
-    });
-    return initial;
-  }, [selectedMatchId, selectedMatch, scores, localScores]);
+    const existing = scores.find(s => s.matchId === selectedMatchId && s.teamId === myTeamId);
+    return {
+      kills: existing?.kills ?? 0,
+      placement: existing?.placement ?? 1,
+    };
+  }, [selectedMatchId, selectedMatch, scores, localScore, myTeamId]);
 
-  const updateLocalScore = (teamId: string, field: "kills" | "placement", value: number) => {
-    setLocalScores(prev => ({
-      ...prev,
-      [selectedMatchId]: {
-        ...currentMatchScores,
-        [teamId]: { ...currentMatchScores[teamId], [field]: value },
-      },
+  // Check if match is locked
+  const isMatchLocked = selectedMatch?.locked ?? false;
+  const canEdit = selectedDay?.status === "active" && selectedMatch?.status === "live" && !isMatchLocked;
+
+  const updateLocalScore = (field: "kills" | "placement", value: number) => {
+    if (!canEdit) {
+      toast({ 
+        title: "Cannot edit", 
+        description: isMatchLocked ? "Match is locked" : "Day or match not active", 
+        variant: "destructive" 
+      });
+      return;
+    }
+    setLocalScore(prev => ({
+      kills: prev?.kills ?? 0,
+      placement: prev?.placement ?? 1,
+      [field]: value,
     }));
   };
 
@@ -84,28 +129,29 @@ export default function AssociateScoresPage() {
     return kills * KILL_POINTS + placementPts;
   };
 
-  const handleSave = async () => {
-    if (!selectedMatch) return;
+  const handleManualSave = async () => {
+    if (!selectedMatchId || !myTeamId || !currentScore || !userProfile?.id) return;
     setIsSaving(true);
     try {
-      for (const teamId of Object.keys(currentMatchScores)) {
-        const { kills, placement } = currentMatchScores[teamId];
-        await setScore(selectedMatchId, teamId, kills, placement);
-      }
-      // Clear local edits after successful save
-      setLocalScores(prev => {
-        const next = { ...prev };
-        delete next[selectedMatchId];
-        return next;
+      await setScore(selectedMatchId, myTeamId, currentScore.kills, currentScore.placement, userProfile.id, selectedDay?.type);
+      setLocalScore(null);
+      toast({ 
+        title: "Score Submitted! ✓", 
+        description: `${currentScore.kills} kills, ${calculatePoints(currentScore.kills, currentScore.placement)} points`,
+        duration: 3000,
       });
-      toast({ title: "Saved", description: "Scores saved successfully" });
     } catch (err: unknown) {
-      console.error("Failed to save scores:", err);
-      toast({ title: "Error", description: "Failed to save scores", variant: "destructive" });
+      console.error("Failed to save:", err);
+      const errMsg = err instanceof Error ? err.message : "Failed to save";
+      toast({ title: "Error", description: errMsg, variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
   };
+
+  // Check if score has been submitted
+  const existingScore = scores.find(s => s.matchId === selectedMatchId && s.teamId === myTeamId);
+  const hasSubmittedScore = !!existingScore && existingScore.placement > 0;
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto">
@@ -115,42 +161,61 @@ export default function AssociateScoresPage() {
         <div>
           <h1 className="text-5xl font-bold tracking-wider">Score Entry</h1>
           <p className="text-muted-foreground text-xl tracking-widest mt-1">
-            Enter kills and placement for each team.
+            Enter kills and placement for your team.
           </p>
         </div>
       </div>
 
+      {/* Scoring Guide */}
+      <Card className="bg-muted/30">
+        <CardContent className="py-4">
+          <div className="flex items-center gap-4">
+            <div className="flex-1">
+              <p className="text-sm font-semibold">Scoring System:</p>
+              <p className="text-xs text-muted-foreground">1 Kill = {KILL_POINTS} point | Placement: 1st={PLACEMENT_POINTS[0]}pts, 2nd={PLACEMENT_POINTS[1]}pts, 3rd={PLACEMENT_POINTS[2]}pts... 12th={PLACEMENT_POINTS[11]}pts</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Selection */}
-      <div className="flex items-center gap-4 flex-wrap">
-        <Select value={selectedDayId} onValueChange={(v) => { setSelectedDayId(v); setSelectedMatchId(""); }}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Select Day" />
-          </SelectTrigger>
-          <SelectContent>
-            {days.map((day) => (
-              <SelectItem key={day.id} value={day.id}>
-                Day {day.dayNumber}: {day.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={selectedMatchId} onValueChange={setSelectedMatchId} disabled={!selectedDayId}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Select Match" />
-          </SelectTrigger>
-          <SelectContent>
-            {filteredMatches.map((match) => (
-              <SelectItem key={match.id} value={match.id}>
-                Match {match.matchNumber}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {selectedMatch && (
-          <Badge className="ml-auto">
-            {selectedMatch.teamIds.length} teams
-          </Badge>
-        )}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <label className="text-sm font-semibold">Day</label>
+          <Select value={selectedDayId} onValueChange={(v) => { setSelectedDayId(v); setSelectedMatchId(""); }}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select Day" />
+            </SelectTrigger>
+            <SelectContent>
+              {days.map((day) => (
+                <SelectItem key={day.id} value={day.id}>
+                  <div className="flex items-center gap-2">
+                    <span>Day {day.dayNumber}: {day.name}</span>
+                    {day.status === "active" && <Badge variant="default" className="text-xs">Active</Badge>}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-semibold">Match</label>
+          <Select value={selectedMatchId} onValueChange={setSelectedMatchId} disabled={!selectedDayId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select Match" />
+            </SelectTrigger>
+            <SelectContent>
+              {filteredMatches.map((match) => (
+                <SelectItem key={match.id} value={match.id}>
+                  <div className="flex items-center gap-2">
+                    <span>Match {match.matchNumber}</span>
+                    {match.status === "live" && <Badge variant="default" className="text-xs">Live</Badge>}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Score Entry */}
@@ -168,83 +233,144 @@ export default function AssociateScoresPage() {
             <p className="text-xl text-muted-foreground">Loading...</p>
           </CardContent>
         </Card>
-      ) : !selectedMatchId ? (
+      ) : !myTeam ? (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <AlertCircle className="h-16 w-16 text-muted-foreground/50 mb-4" />
+            <p className="text-xl text-muted-foreground">No team assigned to your account</p>
+          </CardContent>
+        </Card>
+      ) : !selectedMatchId || !currentScore ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <Trophy className="h-16 w-16 text-muted-foreground/50 mb-4" />
             <p className="text-xl text-muted-foreground">Select a day and match to enter scores</p>
           </CardContent>
         </Card>
-      ) : selectedMatch && selectedMatch.teamIds.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <Trophy className="h-16 w-16 text-muted-foreground/50 mb-4" />
-            <p className="text-xl text-muted-foreground">No teams in this match</p>
-          </CardContent>
-        </Card>
       ) : (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Match {selectedMatch?.matchNumber} Scores</CardTitle>
-            <Button onClick={handleSave} disabled={isSaving} className="gap-2">
-              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              Save Scores
-            </Button>
-          </CardHeader>
+        <>
+          {/* Submitted Score Display */}
+          {hasSubmittedScore && (
+            <Card className="border-green-600 bg-green-50 dark:bg-green-950/20">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                  <CheckCircle className="h-5 w-5" />
+                  Score Submitted Successfully
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Kills</p>
+                    <p className="text-2xl font-bold">{existingScore?.kills || 0}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Placement</p>
+                    <p className="text-2xl font-bold">#{existingScore?.placement || 0}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Placement Pts</p>
+                    <p className="text-2xl font-bold">{PLACEMENT_POINTS[(existingScore?.placement || 1) - 1] || 0}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Total Points</p>
+                    <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                      {calculatePoints(existingScore?.kills || 0, existingScore?.placement || 1)}
+                    </p>
+                  </div>
+                </div>
+                {existingScore?.isBooyah && (
+                  <div className="mt-4">
+                    <Badge variant="default" className="text-base">🏆 Booyah! Winner!</Badge>
+                  </div>
+                )}
+                {existingScore?.hasChampionRush && (
+                  <div className="mt-2">
+                    <Badge variant="destructive" className="text-base">🔥 Champion Rush Badge</Badge>
+                  </div>
+                )}
+                {canEdit && (
+                  <div className="mt-4 pt-4 border-t border-border">
+                    <p className="text-sm text-muted-foreground">
+                      You can edit your score below until the match is locked.
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Score Entry Form */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>
+                  {hasSubmittedScore ? "Edit Score" : "Enter Score"} - {myTeam.name}
+                </CardTitle>
+                {isMatchLocked && (
+                  <p className="text-sm text-destructive mt-1 flex items-center gap-1">
+                    <Lock className="h-3 w-3" />
+                    Match is locked
+                  </p>
+                )}
+                {!canEdit && !isMatchLocked && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {selectedDay?.status !== "active" ? "Day must be active" : "Match must be live"} to edit scores
+                  </p>
+                )}
+              </div>
+              <Button onClick={handleManualSave} disabled={isSaving || !canEdit} className="gap-2">
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                {hasSubmittedScore ? "Update Score" : "Submit Score"}
+              </Button>
+            </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[50px]">#</TableHead>
-                  <TableHead>Team</TableHead>
-                  <TableHead className="w-[100px]">Kills</TableHead>
-                  <TableHead className="w-[100px]">Placement</TableHead>
-                  <TableHead className="w-[100px] text-right">Points</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {selectedMatch?.teamIds.map((teamId, idx) => {
-                  const team = getTeamById(teamId);
-                  const local = currentMatchScores[teamId] || { kills: 0, placement: idx + 1 };
-                  const points = calculatePoints(local.kills, local.placement);
-                  return (
-                    <TableRow key={teamId}>
-                      <TableCell className="font-mono">{idx + 1}</TableCell>
-                      <TableCell className="font-semibold">
-                        {team?.name || "Unknown"} 
-                        {team?.tag && <span className="text-muted-foreground ml-1">({team.tag})</span>}
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={local.kills}
-                          onChange={(e) => updateLocalScore(teamId, "kills", parseInt(e.target.value) || 0)}
-                          className="w-20"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          min={1}
-                          max={12}
-                          value={local.placement}
-                          onChange={(e) => updateLocalScore(teamId, "placement", parseInt(e.target.value) || 1)}
-                          className="w-20"
-                        />
-                      </TableCell>
-                      <TableCell className="text-right font-bold text-lg">{points}</TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-            <div className="mt-4 text-xs text-muted-foreground">
-              <p>Points = Kills × {KILL_POINTS} + Placement Points</p>
-              <p>Placement: 1st={PLACEMENT_POINTS[0]}, 2nd={PLACEMENT_POINTS[1]}, 3rd={PLACEMENT_POINTS[2]}... 12th={PLACEMENT_POINTS[11]}</p>
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold">Kills</label>
+                  <Input
+                    type="number"
+                    min={0}
+                    placeholder="0"
+                    value={currentScore.kills === 0 ? "" : currentScore.kills}
+                    onChange={(e) => updateLocalScore("kills", parseInt(e.target.value) || 0)}
+                    disabled={!canEdit}
+                    className="text-center font-bold text-2xl h-16 cursor-text"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold">Placement (1-12)</label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={12}
+                    placeholder="1-12"
+                    value={currentScore.placement}
+                    onChange={(e) => updateLocalScore("placement", parseInt(e.target.value) || 1)}
+                    disabled={!canEdit}
+                    className="text-center font-bold text-2xl h-16 cursor-text"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold">Total Points</label>
+                  <div className="h-16 flex items-center justify-center border rounded-md bg-muted">
+                    <span className="text-4xl font-bold text-primary">
+                      {calculatePoints(currentScore.kills, currentScore.placement)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p className="font-semibold">Scoring System:</p>
+                <p>• Each Kill = {KILL_POINTS} point</p>
+                <p>• Placement Points: 1st={PLACEMENT_POINTS[0]}, 2nd={PLACEMENT_POINTS[1]}, 3rd={PLACEMENT_POINTS[2]}, 4th={PLACEMENT_POINTS[3]}, 5th={PLACEMENT_POINTS[4]}, 6th={PLACEMENT_POINTS[5]}, 7th={PLACEMENT_POINTS[6]}, 8th={PLACEMENT_POINTS[7]}, 9th={PLACEMENT_POINTS[8]}, 10th={PLACEMENT_POINTS[9]}, 11th={PLACEMENT_POINTS[10]}, 12th={PLACEMENT_POINTS[11]}</p>
+              </div>
             </div>
           </CardContent>
         </Card>
+        </>
       )}
     </div>
   );

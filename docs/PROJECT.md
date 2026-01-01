@@ -15,13 +15,51 @@
 
 ## Tournament Structure
 
-The tournament runs over **3 days**:
+**FREE FIRE STUDENTS ASSOCIATION LEAGUE** runs over **3 days**:
 
-| Day | Type | Description |
-|-----|------|-------------|
-| **Day 1** | `br-shortlist` | Battle Royale - Kill-based qualification. Top teams advance. |
-| **Day 2** | `br-championship` | Battle Royale - Champion Rush. Points accumulate across matches. |
-| **Day 3** | `cs-bracket` | Clash Squad - 8-team knockout bracket (Quarterfinals → Semifinals → Finals). |
+### **Day 1 - Round Robin (br-shortlist)**
+📅 Date: 02/01/2026  
+📊 Total Teams: **18 teams** divided into **3 groups** (A, B, C - 6 teams each)
+
+**Matches:**
+- **Match 1:** Group A 🆚 Group B (12 teams)
+- **Match 2:** Group B 🆚 Group C (12 teams)
+- **Match 3:** Group A 🆚 Group C (12 teams)
+
+➡️ **Each team plays 2 BR matches**
+
+**Scoring:**
+- Placement Points + Kill Points
+- 1 Kill = 1 Point
+- Scores from both matches are added
+
+**Qualification:**
+- Teams ranked by total score
+- **Top 12 teams qualify to Day 2**
+
+---
+
+### **Day 2 - Championship (br-championship)**
+📊 **Top 12 qualified teams** from Day 1 (no groups, all play together)
+
+**Matches:**
+- All 12 teams compete in BR matches
+- Multiple matches possible
+- Points accumulate across all matches
+
+**Qualification:**
+- **Top 8 teams qualify to Day 3**
+
+---
+
+### **Day 3 - Finals (cs-bracket)**
+🏆 **Top 8 qualified teams** from Day 2
+
+**Format:**
+- Clash Squad - 8-team knockout bracket
+- Quarterfinals → Semifinals → Finals
+- Single elimination
+- **1 Champion**
 
 ---
 
@@ -229,26 +267,91 @@ NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 
 ## Workflow: Running a Tournament
 
-### Setup Phase (Admin)
-1. **Add Teams** - Go to `/admin/teams`, add all participating teams
-2. **Create Days** - Go to `/admin/days`, create Day 1, 2, 3 with appropriate types
-3. **Create Groups** (Day 1) - Go to `/admin/groups`, create groups and assign teams
-4. **Create Matches** - Go to `/admin/matches`, create matches for each day
+### Setup Phase (Admin) - **Before Event Day**
 
-### Live Tournament (Admin/Associate)
-1. **Enter Scores** - Go to `/admin/scores` or `/associate/scores`
-2. Select day → Select match → Enter kills and placement → Save
-3. **Leaderboard updates automatically** in real-time
+1. **Create Days** - Go to `/admin/days`
+   - Create Day 1 (br-shortlist, qualify: 12)
+   - Create Day 2 (br-championship, qualify: 8)
+   - Create Day 3 (cs-bracket, qualify: 1)
 
-### Day 3 Bracket (Admin)
-1. Go to `/admin/bracket`
-2. Initialize bracket with top 8 teams from Day 2
-3. Set winners for each match - winners auto-advance
+2. **Add Teams** - Go to `/admin/teams`
+   - Add all 18 teams with names, tags, captain info
 
-### Public Viewing
+3. **Create Groups** - Go to `/admin/groups` (Day 1 ONLY)
+   - Create Group A (select 6 teams)
+   - Create Group B (select 6 teams)
+   - Create Group C (select 6 teams)
+
+4. **Create Day 1 Matches** - Go to `/admin/matches`
+   - Match 1: Select Day 1 → Check Group A + Group B
+   - Match 2: Select Day 1 → Check Group B + Group C
+   - Match 3: Select Day 1 → Check Group A + Group C
+
+---
+
+### Day 1 - Live Event
+
+1. **Start Day 1** - Go to `/admin/days` → Click "Start Day" for Day 1
+2. **Start Match 1** - Go to `/admin/matches` → Set Match 1 to "Live"
+3. **Enter Scores** - Go to `/admin/scores` or `/associate/scores`
+   - Select Day 1 → Select Match 1
+   - Enter kills and placement for all 12 teams
+   - Click "Save Scores"
+4. **Repeat for Match 2 and Match 3**
+5. **End Day 1** - Go to `/admin/days` → Click "End Day" for Day 1
+   - ✨ **Automatically creates Day 2 match with top 12 teams!**
+
+---
+
+### Day 2 - Live Event
+
+1. **Start Day 2** - Go to `/admin/days` → Click "Start Day" for Day 2
+2. **Match already created** - Top 12 from Day 1 automatically assigned
+3. **Start Match** - Go to `/admin/matches` → Set match to "Live"
+4. **Enter Scores** - Same process as Day 1
+5. **End Day 2** - Top 8 teams qualify for bracket
+
+---
+
+### Day 3 - Bracket Finals
+
+1. **Initialize Bracket** - Go to `/admin/bracket`
+   - Top 8 teams from Day 2 automatically populate
+   - Click "Initialize Bracket"
+2. **Set Winners** - As matches complete, select winners
+   - Winners automatically advance to next round
+3. **Champion Crowned** - Finals winner becomes tournament champion
+
+---
+
+### Public Viewing (Real-Time)
+
 - Spectators visit `/tournament` to see live standings
-- Leaderboards update in real-time as scores are entered
+- Leaderboards update automatically as scores are entered
 - Day 3 shows bracket with live match indicators
+- Home page shows top 3 teams and live stats
+
+---
+
+## Key Features
+
+### ✅ Status-Based Score Entry
+- Scores can only be entered when:
+  - Day status = "Active"
+  - Match status = "Live"
+- Prevents accidental edits to completed matches
+
+### ✅ Auto-Qualification
+- Day 1 → Day 2: When Day 1 ends, automatically creates Day 2 match with top 12 teams
+- Day 2 → Day 3: Top 8 teams automatically qualify for bracket
+
+### ✅ Real-Time Updates
+- All public pages update instantly when scores are entered
+- No page refresh needed
+
+### ✅ Role-Based Access
+- **Admin:** Full tournament management
+- **Associate:** Score entry only (simplified interface)
 
 ---
 

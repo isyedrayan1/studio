@@ -51,7 +51,9 @@ import {
 import Link from "next/link";
 import { useTournament } from "@/contexts";
 import { useToast } from "@/hooks/use-toast";
-import type { Day, DayType } from "@/lib/types";
+import type { Day, DayType, LeaderboardEntry } from "@/lib/types";
+import { CelebrationDialog } from "@/components/admin/celebration-dialog";
+import { calculateLeaderboard } from "@/lib/utils-tournament";
 
 const DAY_TYPES: { value: DayType; label: string; description: string; defaultQualify: number }[] = [
   { value: "br-shortlist", label: "BR Shortlisting", description: "17 teams → Top 12 qualify", defaultQualify: 12 },
@@ -73,7 +75,7 @@ function getDayTypeName(type: DayType): string {
 }
 
 export default function DaysPage() {
-  const { days, teams, groups, loading, error, addDay, updateDay, deleteDay, getGroupsByDay } = useTournament();
+  const { days, teams, groups, matches, scores, loading, error, addDay, updateDay, deleteDay, getGroupsByDay } = useTournament();
   const { toast } = useToast();
 
   // Dialog states
@@ -91,6 +93,11 @@ export default function DaysPage() {
   // End day confirmation
   const [isEndDayOpen, setIsEndDayOpen] = useState(false);
   const [dayToEnd, setDayToEnd] = useState<Day | null>(null);
+
+  // Celebration dialog
+  const [isCelebrationOpen, setIsCelebrationOpen] = useState(false);
+  const [celebrationDay, setCelebrationDay] = useState<Day | null>(null);
+  const [qualifiedTeams, setQualifiedTeams] = useState<LeaderboardEntry[]>([]);
 
   // Auto-calculate next day number
   const getNextDayNumber = () => {
@@ -216,9 +223,88 @@ export default function DaysPage() {
 
   const handleEndDay = async () => {
     if (!dayToEnd) return;
-    await handleStatusChange(dayToEnd, "completed");
-    setIsEndDayOpen(false);
-    setDayToEnd(null);
+    
+    try {
+      // Calculate qualified teams before ending day
+      const dayMatches = matches.filter(m => m.dayId === dayToEnd.id);
+      const dayScores = scores.filter(s => 
+        dayMatches.some(m => m.id === s.matchId)
+      );
+      const dayGroups = getGroupsByDay(dayToEnd.id);
+      const leaderboard = calculateLeaderboard(
+        teams,
+        dayMatches,
+        dayScores,
+        dayGroups
+      );
+      
+      const qualifyCount = dayToEnd.qualifyCount || 12;
+      const qualified = leaderboard.slice(0, qualifyCount);
+
+      // End the day
+      await handleStatusChange(dayToEnd, "completed");
+      
+      // If Day 1 (br-shortlist) is ending, auto-create Day 2 match
+      if (dayToEnd.type === "br-shortlist") {
+        const day2 = days.find(d => d.type === "br-championship");
+        if (day2) {
+          // Calculate top 12 teams from Day 1
+          const day1Matches = matches.filter(m => m.dayId === dayToEnd.id);
+          const teamScores: Record<string, { kills: number; points: number }> = {};
+          
+          day1Matches.forEach(match => {
+            match.teamIds.forEach(teamId => {
+              const score = scores.find(s => s.matchId === match.id && s.teamId === teamId);
+              if (!teamScores[teamId]) teamScores[teamId] = { kills: 0, points: 0 };
+              if (score) {
+                teamScores[teamId].kills += score.kills;
+                teamScores[teamId].points += score.totalPoints ?? 0;
+              }
+            });
+          });
+          
+          // Sort and get top 12
+          const qualifyCount = dayToEnd.qualifyCount || 12;
+          const topTeamIds = Object.entries(teamScores)
+            .sort((a, b) => b[1].points - a[1].points || b[1].kills - a[1].kills)
+            .slice(0, qualifyCount)
+            .map(([teamId]) => teamId);
+          
+          // Create Day 2 match with top teams
+          if (topTeamIds.length > 0) {
+            const { addMatch } = await import("@/lib/firebase");
+            await addMatch({
+              dayId: day2.id,
+              matchNumber: 1,
+              groupIds: [],
+              teamIds: topTeamIds,
+              status: "upcoming",
+            });
+            
+            toast({
+              title: "Day 2 Match Created",
+              description: `Top ${topTeamIds.length} teams automatically added to Day 2`,
+            });
+          }
+        }
+      }
+      
+      setIsEndDayOpen(false);
+      
+      // Show celebration dialog with qualified teams
+      setCelebrationDay(dayToEnd);
+      setQualifiedTeams(qualified);
+      setIsCelebrationOpen(true);
+      
+      setDayToEnd(null);
+    } catch (error) {
+      console.error("Error ending day:", error);
+      toast({
+        title: "Error",
+        description: "Failed to end day",
+        variant: "destructive",
+      });
+    }
   };
 
   // Get team count for a day based on its type
@@ -228,13 +314,17 @@ export default function DaysPage() {
       const dayGroups = getGroupsByDay(day.id);
       const teamIds = new Set<string>();
       dayGroups.forEach((g) => g.teamIds.forEach((t) => teamIds.add(t)));
-      return { current: teamIds.size, expected: 17 };
+      return { current: teamIds.size, expected: teamIds.size || 18 };
     } else if (day.type === "br-championship") {
       // Day 2: Should be top 12 from Day 1
-      return { current: 12, expected: 12 };
+      const day1 = days.find(d => d.type === "br-shortlist");
+      const qualifyCount = day1?.qualifyCount || 12;
+      return { current: qualifyCount, expected: qualifyCount };
     } else {
       // Day 3: Should be top 8 from Day 2
-      return { current: 8, expected: 8 };
+      const day2 = days.find(d => d.type === "br-championship");
+      const qualifyCount = day2?.qualifyCount || 8;
+      return { current: qualifyCount, expected: qualifyCount };
     }
   };
 
@@ -598,6 +688,16 @@ export default function DaysPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Celebration Dialog */}
+      {celebrationDay && (
+        <CelebrationDialog
+          open={isCelebrationOpen}
+          onOpenChange={setIsCelebrationOpen}
+          day={celebrationDay}
+          qualifiedTeams={qualifiedTeams}
+        />
+      )}
     </div>
   );
 }
