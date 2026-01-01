@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { mockMatches, mockTeams } from "@/lib/data";
-import type { Match, MatchScore, Team } from "@/lib/definitions";
+import type { Match, Team, Score } from "@/lib/types";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Lock, LockOpen, Save } from "lucide-react";
+import { Lock, LockOpen, Save, Gamepad2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 
 const SkullIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -20,66 +19,125 @@ const SkullIcon = (props: React.SVGProps<SVGSVGElement>) => (
     </svg>
 );
 
-export function MatchManagement() {
-  const [matches, setMatches] = useState<Match[]>(mockMatches);
+interface MatchManagementProps {
+  matches?: Match[];
+  teams?: Team[];
+  scores?: Score[];
+  onUpdateScore?: (matchId: string, teamId: string, kills: number, placement: number) => Promise<void>;
+  onLockMatch?: (matchId: string, locked: boolean) => Promise<void>;
+}
+
+export function MatchManagement({ 
+  matches = [], 
+  teams = [], 
+  scores = [],
+  onUpdateScore,
+  onLockMatch 
+}: MatchManagementProps) {
+  const [localScores, setLocalScores] = useState<Record<string, { kills: number; placement: number }>>({});
   const { toast } = useToast();
 
+  // Get score for a team in a match
+  const getScore = (matchId: string, teamId: string) => {
+    const key = `${matchId}-${teamId}`;
+    if (localScores[key]) return localScores[key];
+    const score = scores.find(s => s.matchId === matchId && s.teamId === teamId);
+    return { kills: score?.kills ?? 0, placement: score?.placement ?? 0 };
+  };
+
+  // Get team name by ID
+  const getTeamName = (teamId: string) => {
+    return teams.find(t => t.id === teamId)?.name ?? 'Unknown Team';
+  };
+
+  // Group matches by day
   const matchesByDay = matches.reduce((acc, match) => {
-    (acc[match.day] = acc[match.day] || []).push(match);
+    const dayId = match.dayId;
+    (acc[dayId] = acc[dayId] || []).push(match);
     return acc;
-  }, {} as Record<number, Match[]>);
+  }, {} as Record<string, Match[]>);
 
   const handleScoreChange = (matchId: string, teamId: string, field: 'kills' | 'placement', value: number) => {
-    setMatches(prevMatches => prevMatches.map(match => {
-        if (match.id === matchId) {
-            const updatedTeams = match.teams.map(teamScore => 
-                teamScore.teamId === teamId ? { ...teamScore, [field]: value } : teamScore
-            );
-            return { ...match, teams: updatedTeams };
-        }
-        return match;
+    const key = `${matchId}-${teamId}`;
+    const current = getScore(matchId, teamId);
+    setLocalScores(prev => ({
+      ...prev,
+      [key]: { ...current, [field]: value }
     }));
   };
   
-  const handleLockMatch = (matchId: string) => {
-    setMatches(prevMatches => prevMatches.map(match => {
-        if (match.id === matchId) {
-            const newStatus = match.status === 'locked' ? 'finished' : 'locked';
-            toast({
-                title: `Match ${newStatus}`,
-                description: `Match ${match.day}-${match.matchInDay} has been ${newStatus}.`,
-            });
-            return { ...match, status: newStatus };
-        }
-        return match;
-    }));
-  }
-
-  const handleSaveChanges = (matchId: string) => {
-    toast({
-      title: "Scores Saved",
-      description: "Scores for the match have been successfully saved.",
-    });
+  const handleLockMatch = async (matchId: string, currentlyLocked: boolean) => {
+    try {
+      await onLockMatch?.(matchId, !currentlyLocked);
+      toast({
+        title: currentlyLocked ? "Match Unlocked" : "Match Locked",
+        description: `Match has been ${currentlyLocked ? 'unlocked' : 'locked'}.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update match status.",
+        variant: "destructive"
+      });
+    }
   };
 
+  const handleSaveChanges = async (match: Match) => {
+    try {
+      // Save all local scores for this match
+      for (const teamId of match.teamIds) {
+        const key = `${match.id}-${teamId}`;
+        if (localScores[key]) {
+          await onUpdateScore?.(match.id, teamId, localScores[key].kills, localScores[key].placement);
+        }
+      }
+      toast({
+        title: "Scores Saved",
+        description: "Scores for the match have been successfully saved.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save scores.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  if (matches.length === 0) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-16">
+          <Gamepad2 className="h-16 w-16 text-muted-foreground/50 mb-4" />
+          <h3 className="text-2xl font-semibold tracking-wider mb-2">No Matches Yet</h3>
+          <p className="text-muted-foreground text-center max-w-md">
+            Create days and add matches to start managing scores. Matches will appear here once configured.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
-    <Accordion type="single" collapsible defaultValue="item-1" className="w-full">
-      {Object.entries(matchesByDay).map(([day, dayMatches]) => (
-        <AccordionItem key={`day-${day}`} value={`item-${day}`}>
+    <Accordion type="single" collapsible defaultValue="item-0" className="w-full">
+      {Object.entries(matchesByDay).map(([dayId, dayMatches], index) => (
+        <AccordionItem key={dayId} value={`item-${index}`}>
           <AccordionTrigger className="text-4xl tracking-wider text-accent py-6">
-            Day {day}
+            Day {index + 1}
           </AccordionTrigger>
           <AccordionContent>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-1">
-              {dayMatches.map((match) => (
-                <Card key={match.id} className={match.status === 'locked' ? 'border-destructive/50' : ''}>
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <CardTitle className="text-3xl tracking-wider">Match {match.matchInDay}</CardTitle>
-                        <CardDescription>Enter scores for each team.</CardDescription>
-                      </div>
-                       <Badge variant={
+              {dayMatches.map((match, matchIndex) => {
+                const isLocked = match.status === 'locked';
+                return (
+                  <Card key={match.id} className={isLocked ? 'border-destructive/50' : ''}>
+                    <CardHeader>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <CardTitle className="text-3xl tracking-wider">Match {matchIndex + 1}</CardTitle>
+                          <CardDescription>Enter scores for each team.</CardDescription>
+                        </div>
+                        <Badge variant={
                           match.status === "live" ? "destructive"
                           : match.status === "finished" ? "secondary"
                           : match.status === 'locked' ? 'destructive'
@@ -87,55 +145,68 @@ export function MatchManagement() {
                         } className="text-md tracking-wider">
                           {match.status}
                         </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4 max-h-96 overflow-y-auto pr-4">
-                    {match.teams.length > 0 ? match.teams.map((score, index) => {
-                      const team = mockTeams.find(t => t.id === score.teamId);
-                      return (
-                        <div key={score.teamId} className="flex items-center gap-4">
-                            <div className="w-8 text-center text-lg text-muted-foreground">{index + 1}</div>
-                            <Label className="flex-1 text-xl tracking-wider">{team?.name}</Label>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4 max-h-96 overflow-y-auto pr-4">
+                      {match.teamIds.length > 0 ? match.teamIds.map((teamId, teamIndex) => {
+                        const score = getScore(match.id, teamId);
+                        return (
+                          <div key={teamId} className="flex items-center gap-4">
+                            <div className="w-8 text-center text-lg text-muted-foreground">{teamIndex + 1}</div>
+                            <Label className="flex-1 text-xl tracking-wider">{getTeamName(teamId)}</Label>
                             <div className="flex items-center gap-2">
-                                <SkullIcon className="h-5 w-5 text-muted-foreground" />
-                                <Input 
-                                    type="number" 
-                                    className="w-20 text-lg" 
-                                    value={score.kills}
-                                    onChange={(e) => handleScoreChange(match.id, score.teamId, 'kills', parseInt(e.target.value) || 0)}
-                                    disabled={match.status === 'locked'}
-                                />
+                              <SkullIcon className="h-5 w-5 text-muted-foreground" />
+                              <Input 
+                                type="number" 
+                                className="w-20 text-lg" 
+                                value={score.kills}
+                                onChange={(e) => handleScoreChange(match.id, teamId, 'kills', parseInt(e.target.value) || 0)}
+                                disabled={isLocked}
+                              />
                             </div>
-                             <div className="flex items-center gap-2">
-                                <Label className="text-lg">#</Label>
-                                <Input 
-                                    type="number" 
-                                    className="w-20 text-lg" 
-                                    value={score.placement}
-                                    onChange={(e) => handleScoreChange(match.id, score.teamId, 'placement', parseInt(e.target.value) || 0)}
-                                    disabled={match.status === 'locked'}
-                                />
+                            <div className="flex items-center gap-2">
+                              <Label className="text-lg">#</Label>
+                              <Input 
+                                type="number" 
+                                className="w-20 text-lg" 
+                                value={score.placement}
+                                onChange={(e) => handleScoreChange(match.id, teamId, 'placement', parseInt(e.target.value) || 0)}
+                                disabled={isLocked}
+                              />
                             </div>
-                        </div>
-                      );
-                    }) : <p className="text-muted-foreground text-center py-8">Match has not started. No teams assigned.</p>}
-                  </CardContent>
-                  {match.teams.length > 0 && (
-                    <CardFooter className="justify-between">
+                          </div>
+                        );
+                      }) : (
+                        <p className="text-muted-foreground text-center py-8">
+                          Match has not started. No teams assigned.
+                        </p>
+                      )}
+                    </CardContent>
+                    {match.teamIds.length > 0 && (
+                      <CardFooter className="justify-between">
                         <div className="flex items-center space-x-2">
-                            <Switch id={`lock-${match.id}`} checked={match.status === 'locked'} onCheckedChange={() => handleLockMatch(match.id)}/>
-                            <Label htmlFor={`lock-${match.id}`} className="text-lg tracking-wider flex items-center gap-2">
-                                {match.status === 'locked' ? <Lock className="h-5 w-5"/> : <LockOpen className="h-5 w-5"/> }
-                                Lock Scores
-                            </Label>
+                          <Switch 
+                            id={`lock-${match.id}`} 
+                            checked={isLocked} 
+                            onCheckedChange={() => handleLockMatch(match.id, isLocked)}
+                          />
+                          <Label htmlFor={`lock-${match.id}`} className="text-lg tracking-wider flex items-center gap-2">
+                            {isLocked ? <Lock className="h-5 w-5"/> : <LockOpen className="h-5 w-5"/> }
+                            Lock Scores
+                          </Label>
                         </div>
-                        <Button onClick={() => handleSaveChanges(match.id)} disabled={match.status === 'locked'} className="gap-2 text-lg tracking-wider">
-                            <Save className="h-5 w-5"/> Save Changes
+                        <Button 
+                          onClick={() => handleSaveChanges(match)} 
+                          disabled={isLocked} 
+                          className="gap-2 text-lg tracking-wider"
+                        >
+                          <Save className="h-5 w-5"/> Save Changes
                         </Button>
-                    </CardFooter>
-                  )}
-                </Card>
-              ))}
+                      </CardFooter>
+                    )}
+                  </Card>
+                );
+              })}
             </div>
           </AccordionContent>
         </AccordionItem>

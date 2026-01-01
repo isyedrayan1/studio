@@ -1,0 +1,72 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Teams - Read: public, Write: admin only
+    match /teams/{teamId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    // Days - Read: public, Write: admin only
+    match /days/{dayId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    // Groups - Read: public, Write: admin only
+    match /groups/{groupId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    // Matches - Read: public, Write: admin only
+    match /matches/{matchId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    // Scores - Read: public, Write: admin only
+    match /scores/{scoreId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    // Announcements - Read: public, Write: admin only
+    match /announcements/{announcementId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    // Users - Read: own document or admin, Write: admin only
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow write: if isAdmin();
+    }
+    
+    // Settings - Read: public, Write: admin only
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    // Tournaments - Read: public, Write: admin only
+    match /tournaments/{tournamentId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}

@@ -14,40 +14,16 @@ import {
   Home,
   Calendar,
   Trophy,
-  Flame,
-  Shield,
 } from "lucide-react";
 import { Logo } from "../icons/logo";
 import { Button } from "../ui/button";
-
-const menuItems = [
-  {
-    href: "/",
-    label: "Home",
-    icon: Home,
-  },
-  {
-    href: "/schedule",
-    label: "Schedule",
-    icon: Calendar,
-  },
-  {
-    href: "/leaderboard",
-    label: "Overall Leaderboard",
-    icon: Trophy,
-  },
-  {
-    href: "/day1/leaderboard",
-    label: "Day 1 Qualifiers",
-    icon: Flame,
-  },
-];
 
 export function PublicSidebar() {
   const pathname = usePathname();
   const router = useRouter();
 
-  if (pathname.startsWith("/admin") || pathname === "/login") {
+  // Hide sidebar on admin, associate, and login pages
+  if (pathname.startsWith("/admin") || pathname.startsWith("/associate") || pathname === "/login") {
     return null;
   }
 
@@ -61,23 +37,45 @@ export function PublicSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>
-          {menuItems.map((item) => (
-            <SidebarMenuItem key={item.href}>
-              <SidebarMenuButton
-                onClick={() => router.push(item.href)}
-                isActive={pathname === item.href}
-                className="text-lg tracking-wider"
-              >
-                <item.icon className="h-5 w-5" />
-                <span>{item.label}</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
+          {/* Home */}
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              onClick={() => router.push("/")}
+              isActive={pathname === "/"}
+              className="text-lg tracking-wider"
+            >
+              <Home className="h-5 w-5" />
+              <span>Home</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+
+          {/* Tournament */}
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              onClick={() => router.push("/tournament")}
+              isActive={pathname === "/tournament"}
+              className="text-lg tracking-wider"
+            >
+              <Trophy className="h-5 w-5" />
+              <span>Tournament</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+
+          {/* Schedule */}
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              onClick={() => router.push("/schedule")}
+              isActive={pathname === "/schedule"}
+              className="text-lg tracking-wider"
+            >
+              <Calendar className="h-5 w-5" />
+              <span>Schedule</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>
-        <Button onClick={() => router.push('/login')} variant="outline" className="w-full justify-start gap-2 tracking-wider text-lg">
-          <Shield className="h-5 w-5" />
+        <Button onClick={() => router.push('/login')} variant="ghost" className="w-full justify-start gap-2 tracking-wider text-lg">
           <span>Admin Login</span>
         </Button>
       </SidebarFooter>

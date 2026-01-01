@@ -1,22 +1,23 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { initialDay1Leaderboard, mockMatches, mockTeams } from "@/lib/data";
-import { ArrowRight, LayoutDashboard, Megaphone, Swords, Users } from "lucide-react";
+import { ArrowRight, Calendar, LayoutDashboard, Megaphone, Settings, Swords, Users } from "lucide-react";
 import Link from "next/link";
 
-const topTeamName = initialDay1Leaderboard.length > 0 ? initialDay1Leaderboard[0].teamName : "N/A";
-
+// TODO: These will be fetched from Firebase
 const quickStats = [
-    { title: "Total Teams", value: mockTeams.length, icon: Users, color: "text-blue-400" },
-    { title: "Matches Played", value: mockMatches.filter(m => m.status === 'finished').length, icon: Swords, color: "text-green-400" },
-    { title: "Live Matches", value: mockMatches.filter(m => m.status === 'live').length, icon: Swords, color: "text-red-400 animate-pulse" },
-    { title: "Top Team", value: topTeamName, icon: LayoutDashboard, color: "text-yellow-400" },
+    { title: "Total Teams", value: 0, icon: Users, color: "text-blue-400" },
+    { title: "Matches Played", value: 0, icon: Swords, color: "text-green-400" },
+    { title: "Live Matches", value: 0, icon: Swords, color: "text-red-400" },
+    { title: "Days Created", value: 0, icon: Calendar, color: "text-yellow-400" },
 ]
 
 const quickActions = [
-    { href: "/admin/teams", label: "Manage Teams", icon: Users },
-    { href: "/admin/matches", label: "Update Scores", icon: Swords },
-    { href: "/admin/announcements", label: "Post Announcement", icon: Megaphone },
+    { href: "/admin/teams", label: "Manage Teams", icon: Users, description: "Add, edit, delete teams" },
+    { href: "/admin/days", label: "Manage Days", icon: Calendar, description: "Create tournament days" },
+    { href: "/admin/groups", label: "Manage Groups", icon: LayoutDashboard, description: "Create groups & assign teams" },
+    { href: "/admin/matches", label: "Manage Matches", icon: Swords, description: "Create matches & enter scores" },
+    { href: "/admin/announcements", label: "Announcements", icon: Megaphone, description: "Post live updates" },
+    { href: "/admin/settings", label: "Settings", icon: Settings, description: "Scoring rules & config" },
 ]
 
 export default function DashboardPage() {
@@ -24,7 +25,9 @@ export default function DashboardPage() {
         <div className="space-y-8">
             <div>
                 <h1 className="text-5xl font-bold tracking-wider">Admin Dashboard</h1>
-                <p className="text-muted-foreground text-xl tracking-widest mt-1">Welcome back, Admin. Let&apos;s get ready to rumble.</p>
+                <p className="text-muted-foreground text-xl tracking-widest mt-1">
+                    Welcome back, Admin. Set up your tournament below.
+                </p>
             </div>
 
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -41,38 +44,38 @@ export default function DashboardPage() {
                 ))}
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                 <Card className="lg:col-span-2">
-                    <CardHeader>
-                        <CardTitle className="text-3xl tracking-wider">Quick Actions</CardTitle>
-                        <CardDescription>Jump right into managing the event.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {quickActions.map(action => (
-                        <Button asChild key={action.href} variant="secondary" className="h-16 justify-between text-xl tracking-wider" >
-                            <Link href={action.href}>
-                                <div className="flex items-center gap-3">
-                                <action.icon className="h-6 w-6" />
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-3xl tracking-wider">Quick Actions</CardTitle>
+                    <CardDescription className="text-lg">Set up and manage your tournament.</CardDescription>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {quickActions.map(action => (
+                    <Button asChild key={action.href} variant="secondary" className="h-20 justify-between text-xl tracking-wider flex-col items-start p-4" >
+                        <Link href={action.href}>
+                            <div className="flex items-center gap-3 w-full">
+                                <action.icon className="h-6 w-6 text-primary" />
                                 <span>{action.label}</span>
-                                </div>
-                                <ArrowRight className="h-5 w-5" />
-                            </Link>
-                        </Button>
-                        ))}
-                    </CardContent>
-                </Card>
-                 <Card>
-                    <CardHeader>
-                        <CardTitle className="text-3xl tracking-wider">Event Status</CardTitle>
-                        <CardDescription>A quick glance at the tournament progress.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4 text-lg tracking-wider">
-                       <div className="flex justify-between"><span>Current Day:</span> <span className="font-bold text-primary">Day 1</span></div>
-                       <div className="flex justify-between"><span>Next Match:</span> <span className="font-bold text-primary">Match 4</span></div>
-                       <div className="flex justify-between"><span>Leaderboard:</span> <span className="font-bold text-green-400">Active</span></div>
-                    </CardContent>
-                </Card>
-            </div>
+                            </div>
+                            <span className="text-sm text-muted-foreground font-normal">{action.description}</span>
+                        </Link>
+                    </Button>
+                    ))}
+                </CardContent>
+            </Card>
+
+            <Card className="border-dashed border-2 border-muted-foreground/30">
+                <CardHeader>
+                    <CardTitle className="text-2xl tracking-wider text-muted-foreground">Getting Started</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 text-lg tracking-wider text-muted-foreground">
+                    <p>1. Add your teams in <strong>Manage Teams</strong></p>
+                    <p>2. Create tournament days in <strong>Manage Days</strong></p>
+                    <p>3. Create groups and assign teams in <strong>Manage Groups</strong></p>
+                    <p>4. Create matches by combining groups in <strong>Manage Matches</strong></p>
+                    <p>5. Enter scores during the event to update the leaderboard</p>
+                </CardContent>
+            </Card>
         </div>
     )
 }

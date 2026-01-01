@@ -1,25 +1,15 @@
 "use client";
 
-import { mockAnnouncements } from "@/lib/data";
+import type { Announcement } from "@/lib/types";
 import { Megaphone } from "lucide-react";
-import { useEffect, useState } from "react";
 
-export function AnnouncementBanner() {
-  const [latestAnnouncement, setLatestAnnouncement] = useState(mockAnnouncements[0]);
+interface AnnouncementBannerProps {
+  announcements?: Announcement[];
+}
 
-  // Simulate real-time updates for announcements
-  useEffect(() => {
-    const interval = setInterval(() => {
-      // This would be replaced by a fetch call in a real app
-      setLatestAnnouncement(prev => {
-        const currentIndex = mockAnnouncements.findIndex(a => a.id === prev.id);
-        const nextIndex = (currentIndex + 1) % mockAnnouncements.length;
-        return mockAnnouncements[nextIndex];
-      });
-    }, 20000); // Cycle announcements every 20 seconds
-
-    return () => clearInterval(interval);
-  }, []);
+export function AnnouncementBanner({ announcements = [] }: AnnouncementBannerProps) {
+  // Get the latest active announcement
+  const latestAnnouncement = announcements.find(a => a.active);
 
   if (!latestAnnouncement) {
     return null;

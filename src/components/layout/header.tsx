@@ -9,15 +9,15 @@ import { SidebarTrigger } from "../ui/sidebar";
 
 const navItems = [
   { href: "/", label: "Home" },
+  { href: "/tournament", label: "Tournament" },
   { href: "/schedule", label: "Schedule" },
-  { href: "/leaderboard", label: "Overall Leaderboard" },
-  { href: "/day1/leaderboard", label: "Day 1 Qualifiers" },
 ];
 
 export function Header() {
   const pathname = usePathname();
 
-  if (pathname.startsWith("/admin") || pathname === "/login") {
+  // Hide header on admin, associate, and login pages
+  if (pathname.startsWith("/admin") || pathname.startsWith("/associate") || pathname === "/login") {
     return null;
   }
 

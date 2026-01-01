@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import type { LeaderboardEntry } from "@/lib/definitions";
-import { initialLeaderboard, mockTeams, mockMatches, calculateLeaderboard } from "@/lib/data";
+import { useState } from "react";
+import type { LeaderboardEntry } from "@/lib/types";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { ArrowDown, ArrowUp, Minus } from "lucide-react";
+import { ArrowDown, ArrowUp, Minus, Trophy } from "lucide-react";
 
 // Custom skull icon for kills
 const SkullIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -28,106 +27,76 @@ const SkullIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-const QUALIFICATION_CUTOFF = 8;
+interface LeaderboardTableProps {
+  leaderboard?: LeaderboardEntry[];
+  qualificationCutoff?: number;
+}
 
-export function LeaderboardTable() {
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(initialLeaderboard);
-
-  // Simulate real-time updates
-  useEffect(() => {
-    const interval = setInterval(() => {
-      // Simulate a match finishing
-      const newMatches = [...mockMatches];
-      const liveMatch = newMatches.find(m => m.status === 'live');
-      if (liveMatch) {
-        liveMatch.status = 'finished';
-        liveMatch.teams = [...mockTeams.slice(0, 12)].sort(() => 0.5 - Math.random()).map((team, index) => ({
-            teamId: team.id,
-            placement: index + 1,
-            kills: Math.floor(Math.random() * 15),
-        }));
-
-        const nextUpcoming = newMatches.find(m => m.status === 'upcoming');
-        if (nextUpcoming) {
-            nextUpcoming.status = 'live';
-        }
-
-        const oldLeaderboard = leaderboard;
-        const newLeaderboardData = calculateLeaderboard(mockTeams, newMatches);
-
-        // Calculate rank changes for animation
-        const finalLeaderboard = newLeaderboardData.map(newEntry => {
-            const oldEntry = oldLeaderboard.find(o => o.teamId === newEntry.teamId);
-            const rankChange = oldEntry ? oldEntry.rank - newEntry.rank : 0;
-            return { ...newEntry, rankChange };
-        });
-        
-        setLeaderboard(finalLeaderboard);
-      }
-    }, 10000); // Update every 10 seconds
-
-    return () => clearInterval(interval);
-  }, [leaderboard]);
+export function LeaderboardTable({ 
+  leaderboard = [], 
+  qualificationCutoff = 12 
+}: LeaderboardTableProps) {
   
+  // Empty state
+  if (leaderboard.length === 0) {
+    return (
+      <div className="rounded-lg border bg-card/50 backdrop-blur-sm p-12 text-center">
+        <Trophy className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
+        <h3 className="text-2xl tracking-wider text-muted-foreground">No Rankings Yet</h3>
+        <p className="text-lg text-muted-foreground/70 mt-2">
+          Leaderboard will appear once matches are completed.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-lg border bg-card/50 backdrop-blur-sm overflow-hidden">
-        <Table>
-            <TableHeader>
-                <TableRow className="text-lg tracking-wider hover:bg-transparent border-b-accent">
-                    <TableHead className="w-[80px] text-center">Rank</TableHead>
-                    <TableHead>Team</TableHead>
-                    <TableHead className="text-center">Placement Pts</TableHead>
-                    <TableHead className="text-center">Kills</TableHead>
-                    <TableHead className="text-right text-primary">Total Points</TableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {leaderboard.map((entry, index) => (
-                    <TableRow key={entry.teamId} className={cn(
-                        "transition-all duration-500 ease-in-out text-xl tracking-wider",
-                        entry.rank <= QUALIFICATION_CUTOFF ? "bg-accent/10 hover:bg-accent/20" : "hover:bg-muted/10",
-                        entry.rankChange > 0 ? "animate-pulse-green" : entry.rankChange < 0 ? "animate-pulse-red" : "",
-                        index === 0 && "border-b-2 border-primary/50",
-                        index === QUALIFICATION_CUTOFF - 1 && "border-b-2 border-accent/30",
-                    )}>
-                        <TableCell className="text-center font-bold text-2xl">
-                            <div className="flex items-center justify-center gap-2">
-                                {entry.rank}
-                                {entry.rankChange > 0 ? <ArrowUp className="h-5 w-5 text-green-400" />
-                                : entry.rankChange < 0 ? <ArrowDown className="h-5 w-5 text-red-400" />
-                                : <Minus className="h-5 w-5 text-muted-foreground" />}
-                            </div>
-                        </TableCell>
-                        <TableCell className="font-semibold text-2xl">{entry.teamName}</TableCell>
-                        <TableCell className="text-center text-muted-foreground">{entry.placementPoints}</TableCell>
-                        <TableCell className="text-center">
-                            <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                                <SkullIcon className="h-5 w-5" />
-                                {entry.totalKills}
-                            </div>
-                        </TableCell>
-                        <TableCell className="text-right font-bold text-2xl text-primary">{entry.totalPoints}</TableCell>
-                    </TableRow>
-                ))}
-            </TableBody>
-        </Table>
-        <style jsx>{`
-            @keyframes pulse-green {
-                0%, 100% { background-color: transparent; }
-                50% { background-color: rgba(74, 222, 128, 0.1); }
-            }
-            @keyframes pulse-red {
-                0%, 100% { background-color: transparent; }
-                50% { background-color: rgba(248, 113, 113, 0.1); }
-            }
-            .animate-pulse-green {
-                animation: pulse-green 2s ease-in-out;
-            }
-            .animate-pulse-red {
-                animation: pulse-red 2s ease-in-out;
-            }
-        `}</style>
+      <Table>
+        <TableHeader>
+          <TableRow className="text-lg tracking-wider hover:bg-transparent border-b-accent">
+            <TableHead className="w-[80px] text-center">Rank</TableHead>
+            <TableHead>Team</TableHead>
+            <TableHead className="text-center">Matches</TableHead>
+            <TableHead className="text-center">Kills</TableHead>
+            <TableHead className="text-right text-primary">Total Points</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {leaderboard.map((entry, index) => (
+            <TableRow 
+              key={entry.teamId} 
+              className={cn(
+                "transition-all duration-500 ease-in-out text-xl tracking-wider",
+                entry.isQualified ? "bg-accent/10 hover:bg-accent/20" : "hover:bg-muted/10 opacity-60",
+                index === qualificationCutoff - 1 && "border-b-2 border-accent/30",
+              )}
+            >
+              <TableCell className="text-center font-bold text-2xl">
+                {entry.rank}
+              </TableCell>
+              <TableCell className="font-semibold text-2xl">
+                {entry.teamName}
+                {entry.groupName && (
+                  <span className="ml-2 text-sm text-muted-foreground">({entry.groupName})</span>
+                )}
+              </TableCell>
+              <TableCell className="text-center text-muted-foreground">
+                {entry.matchesPlayed}
+              </TableCell>
+              <TableCell className="text-center">
+                <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                  <SkullIcon className="h-5 w-5" />
+                  {entry.totalKills}
+                </div>
+              </TableCell>
+              <TableCell className="text-right font-bold text-2xl text-primary">
+                {entry.totalPoints}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }

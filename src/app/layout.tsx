@@ -6,6 +6,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { SidebarProvider } from "@/components/ui/sidebar";
+import { TournamentProvider } from "@/contexts/tournament-context";
+import { AuthProvider } from "@/contexts/auth-context";
 
 const bebasNeue = Bebas_Neue({
   subsets: ["latin"],
@@ -31,16 +33,20 @@ export default function RootLayout({
           bebasNeue.variable
         )}
       >
-        <SidebarProvider>
-          <div className="relative flex min-h-screen w-full flex-col">
-            <Header />
-            <div className="flex flex-1">
-              {children}
-            </div>
-            <Footer />
-          </div>
-        </SidebarProvider>
-        <Toaster />
+        <AuthProvider>
+          <TournamentProvider>
+            <SidebarProvider>
+              <div className="relative flex min-h-screen w-full flex-col">
+                <Header />
+                <div className="flex flex-1">
+                  {children}
+                </div>
+                <Footer />
+              </div>
+            </SidebarProvider>
+            <Toaster />
+          </TournamentProvider>
+        </AuthProvider>
       </body>
     </html>
   );
