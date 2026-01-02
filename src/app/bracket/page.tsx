@@ -34,7 +34,7 @@ const STATUS_CONFIG = {
 function BracketPageContent() {
   const searchParams = useSearchParams();
   const dayIdParam = searchParams.get("dayId");
-  
+
   const { days, bracketMatches, loading, getTeamById } = useTournament();
 
   // Find the CS Ranked day - either from URL param or first cs-bracket type
@@ -45,7 +45,7 @@ function BracketPageContent() {
     }
     return days.find(d => d.type === "cs-bracket");
   }, [days, dayIdParam]);
-  
+
   const dayBracket = bracketMatches.filter(m => m.dayId === csDay?.id);
   const hasBracket = dayBracket.length > 0;
 
@@ -65,8 +65,8 @@ function BracketPageContent() {
     const isFinished = match.status === "finished";
 
     return (
-      <Card 
-        key={match.id} 
+      <Card
+        key={match.id}
         className={`${isFinished ? "opacity-75" : ""} ${match.round === 3 ? "border-primary border-2" : ""} ${isLive ? "ring-2 ring-red-500" : ""}`}
       >
         <CardHeader className="py-2 px-4">
@@ -82,13 +82,12 @@ function BracketPageContent() {
         </CardHeader>
         <CardContent className="py-2 px-4 space-y-2">
           {/* Team 1 */}
-          <div className={`flex items-center justify-between p-3 rounded-md transition-colors ${
-            match.winnerId === match.team1Id 
-              ? "bg-green-500/20 border border-green-500" 
+          <div className={`flex items-center justify-between p-3 rounded-md transition-colors ${match.winnerId === match.team1Id
+              ? "bg-green-500/20 border border-green-500"
               : match.winnerId && match.winnerId !== match.team1Id
                 ? "bg-red-500/10 opacity-50"
                 : "bg-muted/50"
-          }`}>
+            }`}>
             <div className="flex items-center gap-2">
               {match.winnerId === match.team1Id && <Crown className="h-4 w-4 text-yellow-500" />}
               <span className={`font-medium ${match.winnerId === match.team1Id ? "text-green-600" : ""}`}>
@@ -97,19 +96,18 @@ function BracketPageContent() {
               {team1?.tag && <Badge variant="outline" className="text-xs">{team1.tag}</Badge>}
             </div>
           </div>
-          
+
           <div className="flex items-center justify-center text-xs text-muted-foreground">
             <span>VS</span>
           </div>
-          
+
           {/* Team 2 */}
-          <div className={`flex items-center justify-between p-3 rounded-md transition-colors ${
-            match.winnerId === match.team2Id 
-              ? "bg-green-500/20 border border-green-500" 
+          <div className={`flex items-center justify-between p-3 rounded-md transition-colors ${match.winnerId === match.team2Id
+              ? "bg-green-500/20 border border-green-500"
               : match.winnerId && match.winnerId !== match.team2Id
                 ? "bg-red-500/10 opacity-50"
                 : "bg-muted/50"
-          }`}>
+            }`}>
             <div className="flex items-center gap-2">
               {match.winnerId === match.team2Id && <Crown className="h-4 w-4 text-yellow-500" />}
               <span className={`font-medium ${match.winnerId === match.team2Id ? "text-green-600" : ""}`}>
@@ -240,5 +238,17 @@ function BracketPageContent() {
         )}
       </div>
     </main>
+  );
+}
+
+export default function BracketPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    }>
+      <BracketPageContent />
+    </Suspense>
   );
 }

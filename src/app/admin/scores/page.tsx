@@ -78,17 +78,17 @@ export default function ScoresPage() {
   // Initialize local scores from server
   const currentMatchScores = useMemo(() => {
     if (!selectedMatch) return {};
-    
+
     if (localScores[selectedMatchId]) {
       return localScores[selectedMatchId];
     }
-    
+
     const initial: Record<string, { kills: number; placement: number }> = {};
     selectedMatch.teamIds.forEach((teamId, idx) => {
       const existing = scores.find(s => s.matchId === selectedMatchId && s.teamId === teamId);
       initial[teamId] = {
         kills: existing?.kills ?? 0,
-        placement: existing?.placement ?? (idx + 1),
+        placement: existing?.placement ?? 0,
       };
     });
     return initial;
@@ -122,7 +122,7 @@ export default function ScoresPage() {
 
   const handleSave = async () => {
     if (!selectedMatch || !userProfile) return;
-    
+
     const matchScores = localScores[selectedMatchId];
     if (!matchScores) return;
 
@@ -132,12 +132,12 @@ export default function ScoresPage() {
         const { kills, placement } = matchScores[teamId];
         await setScore(selectedMatchId, teamId, kills, placement, userProfile.id, selectedDay?.type);
       }
-      
-      toast({ 
+
+      toast({
         title: "Scores Saved",
         description: `Updated ${Object.keys(matchScores).length} teams`,
       });
-      
+
       // Clear local edits
       setLocalScores(prev => {
         const next = { ...prev };
@@ -146,10 +146,10 @@ export default function ScoresPage() {
       });
     } catch (err: any) {
       console.error("Failed to save scores:", err);
-      toast({ 
-        title: "Error", 
-        description: err.message || "Failed to save scores", 
-        variant: "destructive" 
+      toast({
+        title: "Error",
+        description: err.message || "Failed to save scores",
+        variant: "destructive"
       });
     } finally {
       setIsSaving(false);
@@ -308,8 +308,8 @@ export default function ScoresPage() {
               </CardDescription>
             </div>
             <div className="flex gap-2">
-              <Button 
-                onClick={handleToggleMatchLock} 
+              <Button
+                onClick={handleToggleMatchLock}
                 variant={isMatchLocked ? "destructive" : "outline"}
                 className="gap-2"
               >
@@ -338,12 +338,12 @@ export default function ScoresPage() {
                   const team = getTeamById(teamId);
                   const local = currentMatchScores[teamId] || { kills: 0, placement: idx + 1 };
                   const points = calculatePoints(local.kills, local.placement);
-                  
+
                   return (
                     <TableRow key={teamId}>
                       <TableCell className="font-mono text-center">{idx + 1}</TableCell>
                       <TableCell className="font-semibold">
-                        {team?.name || "Unknown"} 
+                        {team?.name || "Unknown"}
                         {team?.tag && <span className="text-muted-foreground ml-1">({team.tag})</span>}
                       </TableCell>
                       <TableCell className="text-center">
@@ -362,9 +362,12 @@ export default function ScoresPage() {
                           type="number"
                           min={1}
                           max={12}
-                          placeholder="1-12"
-                          value={local.placement}
-                          onChange={(e) => updateLocalScore(teamId, "placement", parseInt(e.target.value) || 1)}
+                          placeholder="12"
+                          value={local.placement === 0 ? "" : local.placement}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            updateLocalScore(teamId, "placement", val === "" ? 0 : parseInt(val));
+                          }}
                           disabled={!canEdit}
                           className="w-20 text-center font-bold text-lg mx-auto cursor-text"
                         />

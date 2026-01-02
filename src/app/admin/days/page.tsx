@@ -75,7 +75,7 @@ function getDayTypeName(type: DayType): string {
 }
 
 export default function DaysPage() {
-  const { days, teams, groups, matches, scores, loading, error, addDay, updateDay, deleteDay, getGroupsByDay } = useTournament();
+  const { days, teams, groups, matches, scores, loading, error, addDay, updateDay, deleteDay, getGroupsByDay, deleteMatch } = useTournament();
   const { toast } = useToast();
 
   // Dialog states
@@ -178,12 +178,21 @@ export default function DaysPage() {
     }
   };
 
+  // Delete day and its related matches
   const handleDelete = async () => {
     if (!selectedDay) return;
     setIsSubmitting(true);
     try {
+      // 1. Find all matches for this day
+      const dayMatches = matches.filter(m => m.dayId === selectedDay.id);
+
+      // 2. Delete all matches (scores cascade delete from matches usually, or need explicit check)
+      // Assuming firebase deleteMatch handles its own score cleanup or we just delete matches
+      await Promise.all(dayMatches.map(m => deleteMatch(m.id)));
+
+      // 3. Delete the day
       await deleteDay(selectedDay.id);
-      toast({ title: "Success", description: `Day ${selectedDay.dayNumber} deleted` });
+      toast({ title: "Success", description: `Day ${selectedDay.dayNumber} and its matches deleted` });
       setIsDeleteOpen(false);
       setSelectedDay(null);
     } catch (err: unknown) {
@@ -199,7 +208,7 @@ export default function DaysPage() {
     try {
       const now = new Date().toISOString();
       const updates: Partial<Day> = { status: newStatus };
-      
+
       // Auto-capture timestamps
       if (newStatus === "active" && day.status === "upcoming") {
         updates.startTime = now;
@@ -207,7 +216,7 @@ export default function DaysPage() {
       if (newStatus === "completed") {
         updates.endTime = now;
       }
-      
+
       await updateDay(day.id, updates);
       toast({ title: "Status Updated", description: `Day ${day.dayNumber} is now ${STATUS_CONFIG[newStatus].label}` });
     } catch (err: unknown) {
@@ -223,11 +232,11 @@ export default function DaysPage() {
 
   const handleEndDay = async () => {
     if (!dayToEnd) return;
-    
+
     try {
       // Calculate qualified teams before ending day
       const dayMatches = matches.filter(m => m.dayId === dayToEnd.id);
-      const dayScores = scores.filter(s => 
+      const dayScores = scores.filter(s =>
         dayMatches.some(m => m.id === s.matchId)
       );
       const dayGroups = getGroupsByDay(dayToEnd.id);
@@ -237,13 +246,13 @@ export default function DaysPage() {
         dayScores,
         dayGroups
       );
-      
+
       const qualifyCount = dayToEnd.qualifyCount || 12;
       const qualified = leaderboard.slice(0, qualifyCount);
 
       // End the day
       await handleStatusChange(dayToEnd, "completed");
-      
+
       // If Day 1 (br-shortlist) is ending, auto-create Day 2 match
       if (dayToEnd.type === "br-shortlist") {
         const day2 = days.find(d => d.type === "br-championship");
@@ -251,7 +260,7 @@ export default function DaysPage() {
           // Calculate top 12 teams from Day 1
           const day1Matches = matches.filter(m => m.dayId === dayToEnd.id);
           const teamScores: Record<string, { kills: number; points: number }> = {};
-          
+
           day1Matches.forEach(match => {
             match.teamIds.forEach(teamId => {
               const score = scores.find(s => s.matchId === match.id && s.teamId === teamId);
@@ -262,14 +271,14 @@ export default function DaysPage() {
               }
             });
           });
-          
+
           // Sort and get top 12
           const qualifyCount = dayToEnd.qualifyCount || 12;
           const topTeamIds = Object.entries(teamScores)
             .sort((a, b) => b[1].points - a[1].points || b[1].kills - a[1].kills)
             .slice(0, qualifyCount)
             .map(([teamId]) => teamId);
-          
+
           // Create Day 2 match with top teams
           if (topTeamIds.length > 0) {
             const { addMatch } = await import("@/lib/firebase");
@@ -280,7 +289,7 @@ export default function DaysPage() {
               teamIds: topTeamIds,
               status: "upcoming",
             });
-            
+
             toast({
               title: "Day 2 Match Created",
               description: `Top ${topTeamIds.length} teams automatically added to Day 2`,
@@ -288,14 +297,14 @@ export default function DaysPage() {
           }
         }
       }
-      
+
       setIsEndDayOpen(false);
-      
+
       // Show celebration dialog with qualified teams
       setCelebrationDay(dayToEnd);
       setQualifiedTeams(qualified);
       setIsCelebrationOpen(true);
-      
+
       setDayToEnd(null);
     } catch (error) {
       console.error("Error ending day:", error);
@@ -433,7 +442,7 @@ export default function DaysPage() {
                     <div className="flex items-center gap-2">
                       <Users className="h-4 w-4 text-muted-foreground" />
                       <span>
-                        {day.type === "br-shortlist" 
+                        {day.type === "br-shortlist"
                           ? `${teamsInDay.current}/${teamsInDay.expected} teams • ${groupsInDay} groups`
                           : `${teamsInDay.expected} teams`
                         }
@@ -533,16 +542,12 @@ export default function DaysPage() {
                   <div className="flex-1" />
 
                   {/* Edit/Delete Actions */}
-                  {day.status !== "locked" && (
-                    <>
-                      <Button variant="outline" size="sm" onClick={() => openEditDialog(day)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button variant="destructive" size="sm" onClick={() => openDeleteDialog(day)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </>
-                  )}
+                  <Button variant="outline" size="sm" onClick={() => openEditDialog(day)}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button variant="destructive" size="sm" onClick={() => openDeleteDialog(day)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </CardFooter>
               </Card>
             );
@@ -653,7 +658,7 @@ export default function DaysPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Day {selectedDay?.dayNumber}?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will delete all groups and matches in this day. This action cannot be undone.
+              This will remove the day and **all created matches/scores** associated with it. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

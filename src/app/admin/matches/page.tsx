@@ -28,6 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -77,6 +78,7 @@ export default function MatchesPage() {
   const [formDayId, setFormDayId] = useState("");
   const [formGroupIds, setFormGroupIds] = useState<string[]>([]);
   const [formTeamIds, setFormTeamIds] = useState<string[]>([]);
+  const [selectionMode, setSelectionMode] = useState<"groups" | "teams">("groups");
 
   const filteredMatches = selectedDayId === "all"
     ? matches
@@ -90,18 +92,21 @@ export default function MatchesPage() {
 
   const isGroupBasedDay = (dayId: string) => getDayType(dayId) === "br-shortlist";
 
-  // Calculate qualified teams from Day 1 (br-shortlist) based on scores
-  const qualifiedTeamsFromDay1 = useMemo(() => {
-    // Find Day 1 (br-shortlist type)
-    const day1 = days.find(d => d.type === "br-shortlist");
-    if (!day1) return [];
+  // Calculate qualified teams from previous stage (br-shortlist) based on scores
+  const qualifiedTeamsFromPreviousStage = useMemo(() => {
+    // Find the latest completed or active shortlist day
+    const shortlistDay = days
+      .filter(d => d.type === "br-shortlist")
+      .sort((a, b) => b.dayNumber - a.dayNumber)[0];
 
-    // Get all matches for Day 1
-    const day1Matches = matches.filter(m => m.dayId === day1.id);
-    
-    // Collect all scores for Day 1
+    if (!shortlistDay) return [];
+
+    // Get all matches for that day
+    const dayMatches = matches.filter(m => m.dayId === shortlistDay.id);
+
+    // Collect all scores for that day
     const teamScores: Record<string, { kills: number; points: number }> = {};
-    day1Matches.forEach(match => {
+    dayMatches.forEach(match => {
       match.teamIds.forEach(teamId => {
         const score = scores.find(s => s.matchId === match.id && s.teamId === teamId);
         if (!teamScores[teamId]) teamScores[teamId] = { kills: 0, points: 0 };
@@ -119,11 +124,11 @@ export default function MatchesPage() {
   }, [days, matches, scores]);
 
   // Get qualified teams based on Day's qualifyCount
-  const getQualifiedTeams = (forDayType: 'br-championship' | 'cs-bracket') => {
+  const getQualifiedTeams = (forDayType: string) => {
     if (forDayType === 'br-championship') {
-      // Day 2 uses top 12 from Day 1
-      const day1 = days.find(d => d.type === 'br-shortlist');
-      return qualifiedTeamsFromDay1.slice(0, day1?.qualifyCount || 12);
+      // Find the shortlist day this championship follows
+      const shortlistDay = days.find(d => d.type === 'br-shortlist');
+      return qualifiedTeamsFromPreviousStage.slice(0, shortlistDay?.qualifyCount || 12);
     }
     // For bracket, this is handled separately
     return [];
@@ -163,7 +168,12 @@ export default function MatchesPage() {
     const dayType = getDayType(dayToUse);
     if (dayType === 'br-championship') {
       setFormTeamIds(getQualifiedTeams('br-championship'));
+      setSelectionMode("teams");
+    } else if (dayType === 'br-shortlist') {
+      setSelectionMode("groups");
+      setFormTeamIds([]);
     } else {
+      setSelectionMode("teams");
       setFormTeamIds([]);
     }
     setIsAddOpen(true);
@@ -174,6 +184,7 @@ export default function MatchesPage() {
     setFormDayId(match.dayId);
     setFormGroupIds([...match.groupIds]);
     setFormTeamIds([...match.teamIds]);
+    setSelectionMode(match.groupIds.length > 0 ? "groups" : "teams");
     setIsEditOpen(true);
   };
 
@@ -204,8 +215,13 @@ export default function MatchesPage() {
     // For Day 2, pre-populate with qualified teams from Day 1
     const dayType = getDayType(dayId);
     if (dayType === 'br-championship') {
+      setSelectionMode("teams");
       setFormTeamIds(getQualifiedTeams('br-championship'));
+    } else if (dayType === 'br-shortlist') {
+      setSelectionMode("groups");
+      setFormTeamIds([]);
     } else {
+      setSelectionMode("teams");
       setFormTeamIds([]);
     }
   };
@@ -219,11 +235,11 @@ export default function MatchesPage() {
     try {
       const matchNumber = getNextMatchNumber(formDayId);
       // Use groups for br-shortlist, direct teams for others
-      const teamIds = isGroupBasedDay(formDayId) ? getTeamsFromGroups(formGroupIds) : formTeamIds;
+      const teamIds = selectionMode === "groups" ? getTeamsFromGroups(formGroupIds) : formTeamIds;
       await addMatch({
         dayId: formDayId,
         matchNumber,
-        groupIds: isGroupBasedDay(formDayId) ? formGroupIds : [],
+        groupIds: selectionMode === "groups" ? formGroupIds : [],
         teamIds,
         status: "upcoming",
       });
@@ -243,10 +259,10 @@ export default function MatchesPage() {
     if (!selectedMatch) return;
     setIsSubmitting(true);
     try {
-      const teamIds = isGroupBasedDay(formDayId) ? getTeamsFromGroups(formGroupIds) : formTeamIds;
+      const teamIds = selectionMode === "groups" ? getTeamsFromGroups(formGroupIds) : formTeamIds;
       await updateMatch(selectedMatch.id, {
         dayId: formDayId,
-        groupIds: isGroupBasedDay(formDayId) ? formGroupIds : [],
+        groupIds: selectionMode === "groups" ? formGroupIds : [],
         teamIds,
       });
       toast({ title: "Success", description: `Match updated` });
@@ -289,7 +305,8 @@ export default function MatchesPage() {
     }
   };
 
-  const availableGroups = formDayId ? getGroupsByDay(formDayId) : [];
+  // Show all groups when in "groups" mode, regardless of the day
+  const availableGroups = groups;
 
   return (
     <div className="space-y-8">
@@ -373,92 +390,88 @@ export default function MatchesPage() {
           {filteredMatches
             .sort((a, b) => a.dayId.localeCompare(b.dayId) || a.matchNumber - b.matchNumber)
             .map((match) => (
-            <Card key={match.id}>
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-bold">Match {match.matchNumber}</h3>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline">{getDayName(match.dayId)}</Badge>
-                    <Badge className={`${STATUS_CONFIG[match.status].color} text-white`}>
-                      {STATUS_CONFIG[match.status].label}
-                    </Badge>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                  <Users className="h-4 w-4" />
-                  <span>{match.teamIds.length} teams</span>
-                </div>
-                {/* Show groups for Day 1 */}
-                {isGroupBasedDay(match.dayId) && match.groupIds.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {match.groupIds.map((gId) => {
-                      const group = groups.find(g => g.id === gId);
-                      return (
-                        <Badge key={gId} variant="secondary" className="text-xs">
-                          {group?.name || "?"}
-                        </Badge>
-                      );
-                    })}
-                  </div>
-                )}
-                {/* Show team names for Day 2+ */}
-                {!isGroupBasedDay(match.dayId) && match.teamIds.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {match.teamIds.slice(0, 6).map((teamId) => {
-                      const team = getTeamById(teamId);
-                      return (
-                        <Badge key={teamId} variant="secondary" className="text-xs">
-                          {team?.tag || team?.name || "?"}
-                        </Badge>
-                      );
-                    })}
-                    {match.teamIds.length > 6 && (
-                      <Badge variant="secondary" className="text-xs">
-                        +{match.teamIds.length - 6} more
+              <Card key={match.id}>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xl font-bold">Match {match.matchNumber}</h3>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">{getDayName(match.dayId)}</Badge>
+                      <Badge className={`${STATUS_CONFIG[match.status].color} text-white`}>
+                        {STATUS_CONFIG[match.status].label}
                       </Badge>
-                    )}
+                    </div>
                   </div>
-                )}
-              </CardContent>
-              <Separator />
-              <CardFooter className="pt-3 flex flex-wrap gap-2">
-                {/* Status Actions */}
-                {match.status === "upcoming" && (
-                  <Button size="sm" className="gap-1 bg-green-600 hover:bg-green-700" onClick={() => handleStatusChange(match, "live")}>
-                    <Play className="h-3 w-3" /> Start
-                  </Button>
-                )}
-                {match.status === "live" && (
-                  <Button size="sm" className="gap-1 bg-blue-600 hover:bg-blue-700" onClick={() => handleStatusChange(match, "finished")}>
-                    <CheckCircle className="h-3 w-3" /> Finish
-                  </Button>
-                )}
-                {match.status === "finished" && (
-                  <Button size="sm" className="gap-1 bg-red-600 hover:bg-red-700" onClick={() => handleStatusChange(match, "locked")}>
-                    <Lock className="h-3 w-3" /> Lock
-                  </Button>
-                )}
-                {match.status === "locked" && (
-                  <Badge variant="outline" className="gap-1 text-muted-foreground">
-                    <Lock className="h-3 w-3" /> Locked
-                  </Badge>
-                )}
-                <div className="flex-1" />
-                {match.status !== "locked" && (
-                  <>
-                    <Button variant="outline" size="sm" onClick={() => openEditDialog(match)}>
-                      <Pencil className="h-4 w-4" />
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                    <Users className="h-4 w-4" />
+                    <span>{match.teamIds.length} teams</span>
+                  </div>
+                  {/* Show groups for Day 1 */}
+                  {isGroupBasedDay(match.dayId) && match.groupIds.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {match.groupIds.map((gId) => {
+                        const group = groups.find(g => g.id === gId);
+                        return (
+                          <Badge key={gId} variant="secondary" className="text-xs">
+                            {group?.name || "?"}
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {/* Show team names for Day 2+ */}
+                  {!isGroupBasedDay(match.dayId) && match.teamIds.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {match.teamIds.slice(0, 6).map((teamId) => {
+                        const team = getTeamById(teamId);
+                        return (
+                          <Badge key={teamId} variant="secondary" className="text-xs">
+                            {team?.tag || team?.name || "?"}
+                          </Badge>
+                        );
+                      })}
+                      {match.teamIds.length > 6 && (
+                        <Badge variant="secondary" className="text-xs">
+                          +{match.teamIds.length - 6} more
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+                <Separator />
+                <CardFooter className="pt-3 flex flex-wrap gap-2">
+                  {/* Status Actions */}
+                  {match.status === "upcoming" && (
+                    <Button size="sm" className="gap-1 bg-green-600 hover:bg-green-700" onClick={() => handleStatusChange(match, "live")}>
+                      <Play className="h-3 w-3" /> Start
                     </Button>
-                    <Button variant="destructive" size="sm" onClick={() => openDeleteDialog(match)}>
-                      <Trash2 className="h-4 w-4" />
+                  )}
+                  {match.status === "live" && (
+                    <Button size="sm" className="gap-1 bg-blue-600 hover:bg-blue-700" onClick={() => handleStatusChange(match, "finished")}>
+                      <CheckCircle className="h-3 w-3" /> Finish
                     </Button>
-                  </>
-                )}
-              </CardFooter>
-            </Card>
-          ))}
+                  )}
+                  {match.status === "finished" && (
+                    <Button size="sm" className="gap-1 bg-red-600 hover:bg-red-700" onClick={() => handleStatusChange(match, "locked")}>
+                      <Lock className="h-3 w-3" /> Lock
+                    </Button>
+                  )}
+                  {match.status === "locked" && (
+                    <Badge variant="outline" className="gap-1 text-muted-foreground">
+                      <Lock className="h-3 w-3" /> Locked
+                    </Badge>
+                  )}
+                  <div className="flex-1" />
+                  <Button variant="outline" size="sm" onClick={() => openEditDialog(match)}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button variant="destructive" size="sm" onClick={() => openDeleteDialog(match)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </CardFooter>
+              </Card>
+            ))}
         </div>
       )}
 
@@ -468,9 +481,8 @@ export default function MatchesPage() {
           <DialogHeader>
             <DialogTitle>Add Match</DialogTitle>
             <DialogDescription>
-              {formDayId && isGroupBasedDay(formDayId)
-                ? "Select day and groups for this match."
-                : "Select day and teams for this match."}
+              {formDayId &&
+                "Choose participant selection method."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -491,8 +503,27 @@ export default function MatchesPage() {
               {formDayId && <p className="text-xs text-muted-foreground">Match #{getNextMatchNumber(formDayId)}</p>}
             </div>
 
-            {/* Group Selection for Day 1 (br-shortlist) */}
-            {formDayId && isGroupBasedDay(formDayId) && (
+            {/* Selection Mode */}
+            <div className="space-y-3">
+              <Label>Selection Method</Label>
+              <RadioGroup
+                value={selectionMode}
+                onValueChange={(v) => setSelectionMode(v as "groups" | "teams")}
+                className="flex gap-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="groups" id="mode-groups" />
+                  <Label htmlFor="mode-groups" className="cursor-pointer">Select Groups</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="teams" id="mode-teams" />
+                  <Label htmlFor="mode-teams" className="cursor-pointer">Select Individual Teams</Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            {/* Group Selection */}
+            {formDayId && selectionMode === "groups" && (
               <div className="space-y-2">
                 <Label>Select Groups ({formGroupIds.length} selected, {getTeamsFromGroups(formGroupIds).length} teams)</Label>
                 <ScrollArea className="h-[150px] border rounded-md p-2">
@@ -518,15 +549,15 @@ export default function MatchesPage() {
               </div>
             )}
 
-            {/* Team Selection for Day 2+ (non-group based) */}
-            {formDayId && !isGroupBasedDay(formDayId) && (
+            {/* Team Selection */}
+            {formDayId && selectionMode === "teams" && (
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <Label>Select Teams ({formTeamIds.length} selected)</Label>
-                  {qualifiedTeamsFromDay1.length > 0 && (
+                  {qualifiedTeamsFromPreviousStage.length > 0 && (
                     <Badge variant="secondary" className="text-xs">
                       <Info className="h-3 w-3 mr-1" />
-                      Top 12 from Day 1 pre-selected
+                      Top qualifiers from previous stage
                     </Badge>
                   )}
                 </div>
@@ -537,14 +568,14 @@ export default function MatchesPage() {
                     <div className="space-y-2">
                       {/* Show qualified teams first, then others */}
                       {[...teams].sort((a, b) => {
-                        const aQualified = qualifiedTeamsFromDay1.includes(a.id);
-                        const bQualified = qualifiedTeamsFromDay1.includes(b.id);
+                        const aQualified = qualifiedTeamsFromPreviousStage.includes(a.id);
+                        const bQualified = qualifiedTeamsFromPreviousStage.includes(b.id);
                         if (aQualified && !bQualified) return -1;
                         if (!aQualified && bQualified) return 1;
-                        return qualifiedTeamsFromDay1.indexOf(a.id) - qualifiedTeamsFromDay1.indexOf(b.id);
+                        return qualifiedTeamsFromPreviousStage.indexOf(a.id) - qualifiedTeamsFromPreviousStage.indexOf(b.id);
                       }).map((team) => {
-                        const rank = qualifiedTeamsFromDay1.indexOf(team.id) + 1;
-                        const isQualified = rank > 0 && rank <= 12;
+                        const rank = qualifiedTeamsFromPreviousStage.indexOf(team.id) + 1;
+                        const isQualified = rank > 0 && rank <= 12; // This 12 could be dynamic based on shortlistDay.qualifyCount
                         return (
                           <div key={team.id} className="flex items-center space-x-2">
                             <Checkbox
@@ -580,9 +611,8 @@ export default function MatchesPage() {
           <DialogHeader>
             <DialogTitle>Edit Match {selectedMatch?.matchNumber}</DialogTitle>
             <DialogDescription>
-              {formDayId && isGroupBasedDay(formDayId)
-                ? "Update match groups."
-                : "Update match teams."}
+              {formDayId &&
+                "Update match participants."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -602,8 +632,29 @@ export default function MatchesPage() {
               </Select>
             </div>
 
-            {/* Group Selection for Day 1 */}
-            {formDayId && isGroupBasedDay(formDayId) && (
+
+
+            {/* Selection Mode */}
+            <div className="space-y-3">
+              <Label>Selection Method</Label>
+              <RadioGroup
+                value={selectionMode}
+                onValueChange={(v) => setSelectionMode(v as "groups" | "teams")}
+                className="flex gap-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="groups" id="edit-mode-groups" />
+                  <Label htmlFor="edit-mode-groups" className="cursor-pointer">Select Groups</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="teams" id="edit-mode-teams" />
+                  <Label htmlFor="edit-mode-teams" className="cursor-pointer">Select Individual Teams</Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            {/* Group Selection */}
+            {formDayId && selectionMode === "groups" && (
               <div className="space-y-2">
                 <Label>Select Groups ({formGroupIds.length} selected)</Label>
                 <ScrollArea className="h-[150px] border rounded-md p-2">
@@ -625,20 +676,20 @@ export default function MatchesPage() {
               </div>
             )}
 
-            {/* Team Selection for Day 2+ */}
-            {formDayId && !isGroupBasedDay(formDayId) && (
+            {/* Team Selection */}
+            {formDayId && selectionMode === "teams" && (
               <div className="space-y-2">
                 <Label>Select Teams ({formTeamIds.length} selected)</Label>
                 <ScrollArea className="h-[200px] border rounded-md p-2">
                   <div className="space-y-2">
                     {[...teams].sort((a, b) => {
-                      const aQualified = qualifiedTeamsFromDay1.includes(a.id);
-                      const bQualified = qualifiedTeamsFromDay1.includes(b.id);
+                      const aQualified = qualifiedTeamsFromPreviousStage.includes(a.id);
+                      const bQualified = qualifiedTeamsFromPreviousStage.includes(b.id);
                       if (aQualified && !bQualified) return -1;
                       if (!aQualified && bQualified) return 1;
-                      return qualifiedTeamsFromDay1.indexOf(a.id) - qualifiedTeamsFromDay1.indexOf(b.id);
+                      return qualifiedTeamsFromPreviousStage.indexOf(a.id) - qualifiedTeamsFromPreviousStage.indexOf(b.id);
                     }).map((team) => {
-                      const rank = qualifiedTeamsFromDay1.indexOf(team.id) + 1;
+                      const rank = qualifiedTeamsFromPreviousStage.indexOf(team.id) + 1;
                       const isQualified = rank > 0 && rank <= 12;
                       return (
                         <div key={team.id} className="flex items-center space-x-2">
@@ -688,6 +739,6 @@ export default function MatchesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </div >
   );
 }
