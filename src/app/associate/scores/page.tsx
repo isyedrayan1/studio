@@ -51,11 +51,14 @@ export default function AssociateScoresPage() {
   const myTeamId = associateAccount?.teamId;
   const myTeam = myTeamId ? getTeamById(myTeamId) : null;
 
-  // Filter matches that include my team
+  // Filter matches that include my team (either directly or via group)
   const myMatches = useMemo(() => {
     if (!myTeamId) return [];
-    return matches.filter(m => m.teamIds.includes(myTeamId));
-  }, [matches, myTeamId]);
+    return matches.filter(m =>
+      m.teamIds.includes(myTeamId) ||
+      (myTeam?.groupId && m.groupIds.includes(myTeam.groupId))
+    );
+  }, [matches, myTeamId, myTeam]);
 
   const filteredMatches = selectedDayId ? myMatches.filter(m => m.dayId === selectedDayId) : myMatches;
   const selectedDay = days.find(d => d.id === selectedDayId);
@@ -90,12 +93,12 @@ export default function AssociateScoresPage() {
   // Get or initialize local score for my team
   const currentScore = useMemo(() => {
     if (!selectedMatch || !myTeamId) return null;
-    
+
     // If we have local edit, use it
     if (localScore) {
       return localScore;
     }
-    
+
     // Otherwise initialize from server data
     const existing = scores.find(s => s.matchId === selectedMatchId && s.teamId === myTeamId);
     return {
@@ -110,10 +113,10 @@ export default function AssociateScoresPage() {
 
   const updateLocalScore = (field: "kills" | "placement", value: number) => {
     if (!canEdit) {
-      toast({ 
-        title: "Cannot edit", 
-        description: isMatchLocked ? "Match is locked" : "Day or match not active", 
-        variant: "destructive" 
+      toast({
+        title: "Cannot edit",
+        description: isMatchLocked ? "Match is locked" : "Day or match not active",
+        variant: "destructive"
       });
       return;
     }
@@ -130,13 +133,19 @@ export default function AssociateScoresPage() {
   };
 
   const handleManualSave = async () => {
-    if (!selectedMatchId || !myTeamId || !currentScore || !userProfile?.id) return;
+    const saverId = userProfile?.id || associateAccount?.id;
+    if (!selectedMatchId || !myTeamId || !currentScore || !saverId) {
+      if (!saverId) {
+        toast({ title: "Auth Error", description: "Could not identify user", variant: "destructive" });
+      }
+      return;
+    }
     setIsSaving(true);
     try {
-      await setScore(selectedMatchId, myTeamId, currentScore.kills, currentScore.placement, userProfile.id, selectedDay?.type);
+      await setScore(selectedMatchId, myTeamId, currentScore.kills, currentScore.placement, saverId, selectedDay?.type);
       setLocalScore(null);
-      toast({ 
-        title: "Score Submitted! ✓", 
+      toast({
+        title: "Score Submitted! ✓",
         description: `${currentScore.kills} kills, ${calculatePoints(currentScore.kills, currentScore.placement)} points`,
         duration: 3000,
       });
@@ -156,12 +165,12 @@ export default function AssociateScoresPage() {
   return (
     <div className="space-y-8 max-w-4xl mx-auto">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Trophy className="h-12 w-12 text-primary" />
+      <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 p-2 md:p-0">
+        <Trophy className="h-8 w-8 md:h-12 md:w-12 text-primary flex-shrink-0" />
         <div>
-          <h1 className="text-5xl font-bold tracking-wider">Score Entry</h1>
-          <p className="text-muted-foreground text-xl tracking-widest mt-1">
-            Enter kills and placement for your team.
+          <h1 className="text-2xl md:text-5xl font-bold tracking-tight md:tracking-wider">Score Entry</h1>
+          <p className="text-muted-foreground text-sm md:text-xl tracking-normal md:tracking-widest mt-0.5 md:mt-1">
+            Enter kills and placement for {myTeam?.name || "your team"}.
           </p>
         </div>
       </div>
@@ -183,7 +192,7 @@ export default function AssociateScoresPage() {
         <div className="space-y-2">
           <label className="text-sm font-semibold">Day</label>
           <Select value={selectedDayId} onValueChange={(v) => { setSelectedDayId(v); setSelectedMatchId(""); }}>
-            <SelectTrigger>
+            <SelectTrigger className="h-10 md:h-12">
               <SelectValue placeholder="Select Day" />
             </SelectTrigger>
             <SelectContent>
@@ -201,7 +210,7 @@ export default function AssociateScoresPage() {
         <div className="space-y-2">
           <label className="text-sm font-semibold">Match</label>
           <Select value={selectedMatchId} onValueChange={setSelectedMatchId} disabled={!selectedDayId}>
-            <SelectTrigger>
+            <SelectTrigger className="h-10 md:h-12">
               <SelectValue placeholder="Select Match" />
             </SelectTrigger>
             <SelectContent>
@@ -219,159 +228,188 @@ export default function AssociateScoresPage() {
       </div>
 
       {/* Score Entry */}
-      {error ? (
-        <Card className="border-destructive">
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <AlertCircle className="h-16 w-16 text-destructive mb-4" />
-            <p className="text-xl text-destructive font-semibold">Connection Error</p>
-          </CardContent>
-        </Card>
-      ) : loading ? (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <Loader2 className="h-16 w-16 text-muted-foreground/50 mb-4 animate-spin" />
-            <p className="text-xl text-muted-foreground">Loading...</p>
-          </CardContent>
-        </Card>
-      ) : !myTeam ? (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <AlertCircle className="h-16 w-16 text-muted-foreground/50 mb-4" />
-            <p className="text-xl text-muted-foreground">No team assigned to your account</p>
-          </CardContent>
-        </Card>
-      ) : !selectedMatchId || !currentScore ? (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <Trophy className="h-16 w-16 text-muted-foreground/50 mb-4" />
-            <p className="text-xl text-muted-foreground">Select a day and match to enter scores</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <>
-          {/* Submitted Score Display */}
-          {hasSubmittedScore && (
-            <Card className="border-green-600 bg-green-50 dark:bg-green-950/20">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-green-700 dark:text-green-400">
-                  <CheckCircle className="h-5 w-5" />
-                  Score Submitted Successfully
-                </CardTitle>
+      {/* Content Area with min-height to stabilize layout */}
+      <div className="min-h-[400px]">
+        {error ? (
+          <Card className="border-destructive">
+            <CardContent className="flex flex-col items-center justify-center py-16">
+              <AlertCircle className="h-16 w-16 text-destructive mb-4" />
+              <p className="text-xl text-destructive font-semibold">Connection Error</p>
+            </CardContent>
+          </Card>
+        ) : loading ? (
+          <Card className="border-dashed animate-pulse">
+            <CardContent className="flex flex-col items-center justify-center py-16">
+              <Loader2 className="h-12 w-12 text-muted-foreground/50 mb-4 animate-spin" />
+              <p className="text-lg text-muted-foreground">Fetching tournament data...</p>
+            </CardContent>
+          </Card>
+        ) : !myTeam ? (
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center justify-center py-16 text-center px-4">
+              <div className="bg-muted rounded-full p-4 mb-4">
+                <AlertCircle className="h-10 w-10 text-muted-foreground/50" />
+              </div>
+              <p className="text-xl text-muted-foreground font-medium">No team assigned</p>
+              <p className="text-sm text-muted-foreground mt-2 max-w-xs">
+                Your account is not assigned to any team. Please contact the administrator.
+              </p>
+            </CardContent>
+          </Card>
+        ) : !selectedMatchId || !currentScore ? (
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center justify-center py-16 text-center px-4">
+              <div className="bg-primary/10 rounded-full p-4 mb-4">
+                <Trophy className="h-10 w-10 text-primary/50" />
+              </div>
+              <p className="text-xl text-muted-foreground font-medium">Select a Match</p>
+              <p className="text-sm text-muted-foreground mt-2 max-w-xs">
+                Choose a day and match from the dropdowns above to start entering scores.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-6 animate-in fade-in duration-500">
+            {/* Submitted Score Display */}
+            {hasSubmittedScore && (
+              <Card className="border-green-600 bg-green-50 dark:bg-green-950/20 overflow-hidden">
+                <div className="h-1 bg-green-600 w-full" />
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-green-700 dark:text-green-400 text-base md:text-lg">
+                    <CheckCircle className="h-5 w-5" />
+                    Score Submitted Successfully
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                    <div className="bg-background/50 p-3 rounded-lg border border-green-100 dark:border-green-900/30">
+                      <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Kills</p>
+                      <p className="text-xl md:text-2xl font-bold">{existingScore?.kills || 0}</p>
+                    </div>
+                    <div className="bg-background/50 p-3 rounded-lg border border-green-100 dark:border-green-900/30">
+                      <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Placement</p>
+                      <p className="text-xl md:text-2xl font-bold">#{existingScore?.placement || 0}</p>
+                    </div>
+                    <div className="bg-background/50 p-3 rounded-lg border border-green-100 dark:border-green-900/30">
+                      <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Placement Pts</p>
+                      <p className="text-xl md:text-2xl font-bold">{PLACEMENT_POINTS[(existingScore?.placement || 1) - 1] || 0}</p>
+                    </div>
+                    <div className="bg-green-600 p-3 rounded-lg text-white">
+                      <p className="text-[10px] uppercase font-bold opacity-80 mb-1 text-white">Total Points</p>
+                      <p className="text-xl md:text-2xl font-bold text-white">
+                        {calculatePoints(existingScore?.kills || 0, existingScore?.placement || 1)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {(existingScore?.isBooyah || existingScore?.hasChampionRush) && (
+                    <div className="flex flex-wrap gap-2 mt-4">
+                      {existingScore?.isBooyah && (
+                        <Badge variant="default" className="bg-green-600">🏆 Booyah!</Badge>
+                      )}
+                      {existingScore?.hasChampionRush && (
+                        <Badge variant="destructive">🔥 Champion Rush</Badge>
+                      )}
+                    </div>
+                  )}
+
+                  {canEdit && (
+                    <div className="mt-4 pt-4 border-t border-border/40">
+                      <p className="text-xs text-muted-foreground">
+                        Editing is enabled. You can adjust the score below until the match is locked.
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Score Entry Form */}
+            <Card className="shadow-md">
+              <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
+                <div>
+                  <CardTitle className="text-lg md:text-xl">
+                    {hasSubmittedScore ? "Update Score" : "Score Entry"} - {myTeam.name}
+                  </CardTitle>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {isMatchLocked && (
+                      <Badge variant="secondary" className="text-[10px] gap-1 px-1.5 h-5 uppercase">
+                        <Lock className="h-3 w-3" /> Locked
+                      </Badge>
+                    )}
+                    {!canEdit && !isMatchLocked && (
+                      <Badge variant="outline" className="text-[10px] px-1.5 h-5 uppercase">
+                        {selectedDay?.status !== "active" ? "Day Inactive" : "Match Not Live"}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+                <Button
+                  onClick={handleManualSave}
+                  disabled={isSaving || !canEdit}
+                  className="w-full sm:w-auto gap-2 font-bold"
+                  size="lg"
+                >
+                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  {hasSubmittedScore ? "Update" : "Submit"}
+                </Button>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">Kills</p>
-                    <p className="text-2xl font-bold">{existingScore?.kills || 0}</p>
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Kills</label>
+                      <Input
+                        type="number"
+                        min={0}
+                        placeholder="0"
+                        value={currentScore.kills === 0 ? "" : currentScore.kills}
+                        onChange={(e) => updateLocalScore("kills", parseInt(e.target.value) || 0)}
+                        disabled={!canEdit}
+                        className="text-center font-bold text-2xl h-16 cursor-text transition-all focus:ring-2 ring-primary/20"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Placement (1-12)</label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={12}
+                        placeholder="1-12"
+                        value={currentScore.placement}
+                        onChange={(e) => updateLocalScore("placement", parseInt(e.target.value) || 1)}
+                        disabled={!canEdit}
+                        className="text-center font-bold text-2xl h-16 cursor-text transition-all focus:ring-2 ring-primary/20"
+                      />
+                    </div>
+                    <div className="space-y-2 sm:col-span-2 md:col-span-1">
+                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total Points</label>
+                      <div className="h-16 flex items-center justify-center border-2 border-primary/20 rounded-md bg-primary/5">
+                        <span className="text-4xl font-bold text-primary">
+                          {calculatePoints(currentScore.kills, currentScore.placement)}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">Placement</p>
-                    <p className="text-2xl font-bold">#{existingScore?.placement || 0}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">Placement Pts</p>
-                    <p className="text-2xl font-bold">{PLACEMENT_POINTS[(existingScore?.placement || 1) - 1] || 0}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">Total Points</p>
-                    <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                      {calculatePoints(existingScore?.kills || 0, existingScore?.placement || 1)}
-                    </p>
+
+                  <div className="p-4 bg-muted/40 rounded-lg border border-border/40">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Scoring Guide</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-y-2 text-[10px]">
+                      <div>1st: <span className="font-bold">{PLACEMENT_POINTS[0]}</span></div>
+                      <div>2nd: <span className="font-bold">{PLACEMENT_POINTS[1]}</span></div>
+                      <div>3rd: <span className="font-bold">{PLACEMENT_POINTS[2]}</span></div>
+                      <div>4th: <span className="font-bold">{PLACEMENT_POINTS[3]}</span></div>
+                      <div>5th: <span className="font-bold">{PLACEMENT_POINTS[4]}</span></div>
+                      <div>6th: <span className="font-bold">{PLACEMENT_POINTS[5]}</span></div>
+                      <div>Kills: <span className="font-bold">{KILL_POINTS} / kill</span></div>
+                    </div>
                   </div>
                 </div>
-                {existingScore?.isBooyah && (
-                  <div className="mt-4">
-                    <Badge variant="default" className="text-base">🏆 Booyah! Winner!</Badge>
-                  </div>
-                )}
-                {existingScore?.hasChampionRush && (
-                  <div className="mt-2">
-                    <Badge variant="destructive" className="text-base">🔥 Champion Rush Badge</Badge>
-                  </div>
-                )}
-                {canEdit && (
-                  <div className="mt-4 pt-4 border-t border-border">
-                    <p className="text-sm text-muted-foreground">
-                      You can edit your score below until the match is locked.
-                    </p>
-                  </div>
-                )}
               </CardContent>
             </Card>
-          )}
-
-          {/* Score Entry Form */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>
-                  {hasSubmittedScore ? "Edit Score" : "Enter Score"} - {myTeam.name}
-                </CardTitle>
-                {isMatchLocked && (
-                  <p className="text-sm text-destructive mt-1 flex items-center gap-1">
-                    <Lock className="h-3 w-3" />
-                    Match is locked
-                  </p>
-                )}
-                {!canEdit && !isMatchLocked && (
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {selectedDay?.status !== "active" ? "Day must be active" : "Match must be live"} to edit scores
-                  </p>
-                )}
-              </div>
-              <Button onClick={handleManualSave} disabled={isSaving || !canEdit} className="gap-2">
-                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                {hasSubmittedScore ? "Update Score" : "Submit Score"}
-              </Button>
-            </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold">Kills</label>
-                  <Input
-                    type="number"
-                    min={0}
-                    placeholder="0"
-                    value={currentScore.kills === 0 ? "" : currentScore.kills}
-                    onChange={(e) => updateLocalScore("kills", parseInt(e.target.value) || 0)}
-                    disabled={!canEdit}
-                    className="text-center font-bold text-2xl h-16 cursor-text"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold">Placement (1-12)</label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={12}
-                    placeholder="1-12"
-                    value={currentScore.placement}
-                    onChange={(e) => updateLocalScore("placement", parseInt(e.target.value) || 1)}
-                    disabled={!canEdit}
-                    className="text-center font-bold text-2xl h-16 cursor-text"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold">Total Points</label>
-                  <div className="h-16 flex items-center justify-center border rounded-md bg-muted">
-                    <span className="text-4xl font-bold text-primary">
-                      {calculatePoints(currentScore.kills, currentScore.placement)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="text-xs text-muted-foreground space-y-1">
-                <p className="font-semibold">Scoring System:</p>
-                <p>• Each Kill = {KILL_POINTS} point</p>
-                <p>• Placement Points: 1st={PLACEMENT_POINTS[0]}, 2nd={PLACEMENT_POINTS[1]}, 3rd={PLACEMENT_POINTS[2]}, 4th={PLACEMENT_POINTS[3]}, 5th={PLACEMENT_POINTS[4]}, 6th={PLACEMENT_POINTS[5]}, 7th={PLACEMENT_POINTS[6]}, 8th={PLACEMENT_POINTS[7]}, 9th={PLACEMENT_POINTS[8]}, 10th={PLACEMENT_POINTS[9]}, 11th={PLACEMENT_POINTS[10]}, 12th={PLACEMENT_POINTS[11]}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        </>
-      )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
