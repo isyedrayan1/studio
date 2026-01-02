@@ -9,7 +9,7 @@ import { SidebarTrigger } from "../ui/sidebar";
 
 const navItems = [
   { href: "/", label: "Home" },
-  { href: "/tournament", label: "Tournament" },
+  { href: "/leaderboard", label: "Leaderboard" },
   { href: "/schedule", label: "Schedule" },
 ];
 

@@ -52,8 +52,8 @@ export function PublicSidebar() {
           {/* Tournament */}
           <SidebarMenuItem>
             <SidebarMenuButton
-              onClick={() => router.push("/tournament")}
-              isActive={pathname === "/tournament"}
+              onClick={() => router.push("/leaderboard")}
+              isActive={pathname === "/leaderboard"}
               className="text-lg tracking-wider"
             >
               <Trophy className="h-5 w-5" />

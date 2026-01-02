@@ -65,7 +65,7 @@ export function Footer() {
             <Link href="/" className="text-muted-foreground hover:text-primary transition-colors">
               Home
             </Link>
-            <Link href="/tournament" className="text-muted-foreground hover:text-primary transition-colors">
+            <Link href="/leaderboard" className="text-muted-foreground hover:text-primary transition-colors">
               Tournament
             </Link>
             <Link href="/schedule" className="text-muted-foreground hover:text-primary transition-colors">

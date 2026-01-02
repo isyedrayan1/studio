@@ -35,6 +35,8 @@ function docToScore(docData: any, docId: string): Score {
     teamId: docData.teamId,
     kills: docData.kills ?? 0,
     placement: docData.placement ?? 0,
+    isBooyah: docData.isBooyah ?? false,
+    hasChampionRush: docData.hasChampionRush ?? false,
     locked: docData.locked ?? false,
     lastUpdatedBy: docData.lastUpdatedBy,
     lastUpdatedAt: docData.lastUpdatedAt?.toDate?.()?.toISOString(),

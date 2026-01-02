@@ -101,16 +101,10 @@ export default function AdminLeaderboardPage() {
       ? matches 
       : matches.filter(m => m.dayId === selectedDayId);
 
-    // Get all teams that should be in this leaderboard (teams that are in any of the relevant matches)
-    const teamsInMatches = new Set<string>();
-    relevantMatches.forEach(match => {
-      match.teamIds.forEach(teamId => teamsInMatches.add(teamId));
-    });
-
-    // Initialize only teams that play in these matches
-    teamsInMatches.forEach(teamId => {
-      teamStats[teamId] = {
-        teamId,
+    // Initialize ALL teams with zero stats (show all teams even without scores)
+    teams.forEach(team => {
+      teamStats[team.id] = {
+        teamId: team.id,
         totalKills: 0,
         totalPlacement: 0,
         totalPoints: 0,
@@ -120,11 +114,11 @@ export default function AdminLeaderboardPage() {
       };
     });
 
-    // Aggregate scores
+    // Aggregate scores for teams that have played matches
     relevantMatches.forEach(match => {
       match.teamIds.forEach(teamId => {
         const score = scores.find(s => s.matchId === match.id && s.teamId === teamId);
-        if (score) {
+        if (score && teamStats[teamId]) {
           const placementPts = PLACEMENT_POINTS[score.placement - 1] ?? 0;
           const totalPts = (score.kills * KILL_POINTS) + placementPts;
 
@@ -134,7 +128,7 @@ export default function AdminLeaderboardPage() {
           teamStats[teamId].matchesPlayed += 1;
           
           // Track Booyahs and Champion Rush badges
-          if (score.isBooyah) teamStats[teamId].booyahCount += 1;
+          if (score.isBooyah || score.placement === 1) teamStats[teamId].booyahCount += 1;
           if (score.hasChampionRush) teamStats[teamId].championRushCount += 1;
         }
       });

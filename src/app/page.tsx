@@ -137,7 +137,7 @@ export default function Home() {
               <div className="relative group">
                 <div className="absolute inset-0 bg-primary blur-xl opacity-0 group-hover:opacity-70 transition-opacity" />
                 <Button asChild size="lg" className="relative text-xl px-10 py-7 bg-primary hover:bg-primary/90 shadow-2xl group font-bold border-2 border-primary/50">
-                  <Link href="/tournament" className="flex items-center gap-3">
+                  <Link href="/leaderboard" className="flex items-center gap-3">
                     <Trophy className="h-6 w-6" />
                     ENTER TOURNAMENT
                     <ChevronRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
@@ -273,7 +273,7 @@ export default function Home() {
 
               <div className="flex justify-center mt-10">
                 <Button asChild variant="outline" size="lg" className="gap-2 text-lg font-semibold">
-                  <Link href="/tournament">
+                  <Link href="/leaderboard">
                     View Full Leaderboard
                     <ArrowRight className="h-4 w-4" />
                   </Link>
@@ -368,7 +368,7 @@ export default function Home() {
 
             <div className="flex justify-center mt-10">
               <Button asChild size="lg" className="gap-2 text-lg font-semibold">
-                <Link href="/tournament">
+                <Link href="/leaderboard">
                   <Trophy className="h-5 w-5" />
                   Enter Tournament Hub
                 </Link>
@@ -488,7 +488,7 @@ export default function Home() {
                 <div className="relative group">
                   <div className="absolute inset-0 bg-primary blur-xl opacity-0 group-hover:opacity-70 transition-opacity" />
                   <Button asChild variant="outline" size="lg" className="relative gap-3 text-xl px-12 py-8 border-2 border-primary text-primary hover:bg-primary hover:text-white font-bold shadow-2xl">
-                    <Link href="/tournament">
+                    <Link href="/leaderboard">
                       <Trophy className="h-6 w-6" />
                       VIEW FULL LEADERBOARD
                       <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
