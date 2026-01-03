@@ -66,9 +66,14 @@ export function calculateLeaderboard(
     m => m.status === 'finished' || m.status === 'locked'
   );
 
+  // Filter to only include verified scores (or scores without verification status for backward compatibility)
+  const verifiedScores = scores.filter(
+    s => !s.verificationStatus || s.verificationStatus === 'verified'
+  );
+
   // Calculate scores for each team
   finishedMatches.forEach(match => {
-    const matchScores = scores.filter(s => s.matchId === match.id);
+    const matchScores = verifiedScores.filter(s => s.matchId === match.id);
     
     matchScores.forEach(score => {
       const stats = statsMap.get(score.teamId);
