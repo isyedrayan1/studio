@@ -8,6 +8,7 @@ import { Footer } from "@/components/layout/footer";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { TournamentProvider } from "@/contexts/tournament-context";
 import { AuthProvider } from "@/contexts/auth-context";
+import { Analytics } from "@vercel/analytics/next";
 
 // Bebas Neue - For all headings, nav, sidebars, buttons
 const bebasNeue = Bebas_Neue({
@@ -54,6 +55,7 @@ export default function RootLayout({
               </div>
             </SidebarProvider>
             <Toaster />
+            <Analytics />
           </TournamentProvider>
         </AuthProvider>
       </body>
