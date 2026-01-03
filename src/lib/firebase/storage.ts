@@ -1,77 +1,71 @@
 // ============================================
-// FIREBASE STORAGE - IMAGE UPLOAD SERVICE
+// FIREBASE STORAGE - IMAGE UPLOAD OPERATIONS
 // ============================================
 
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { storage } from './config';
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import app from './config';
+
+const storage = getStorage(app);
 
 /**
- * Upload a proof image for score verification
- * @param file - The image file to upload
- * @param matchId - Match ID for organizing storage
- * @param teamId - Team ID for the score
+ * Upload proof image for a score
+ * @param matchId - Match ID
+ * @param teamId - Team ID
+ * @param file - Image file to upload
  * @returns Download URL of the uploaded image
  */
 export async function uploadProofImage(
-  file: File,
   matchId: string,
-  teamId: string
+  teamId: string,
+  file: File
 ): Promise<string> {
-  // Create a unique filename with timestamp
+  // Create unique path: proof-images/{matchId}_{teamId}_{timestamp}.{ext}
+  const ext = file.name.split('.').pop() || 'jpg';
   const timestamp = Date.now();
-  const extension = file.name.split('.').pop() || 'jpg';
-  const fileName = `${matchId}_${teamId}_${timestamp}.${extension}`;
+  const path = `proof-images/${matchId}_${teamId}_${timestamp}.${ext}`;
   
-  // Store in proof-images folder
-  const storageRef = ref(storage, `proof-images/${matchId}/${fileName}`);
+  const storageRef = ref(storage, path);
   
   // Upload the file
   const snapshot = await uploadBytes(storageRef, file, {
     contentType: file.type,
-    customMetadata: {
-      matchId,
-      teamId,
-      uploadedAt: new Date().toISOString(),
-    },
   });
   
-  // Get the download URL
-  const downloadURL = await getDownloadURL(snapshot.ref);
-  return downloadURL;
+  // Get and return the download URL
+  const downloadUrl = await getDownloadURL(snapshot.ref);
+  return downloadUrl;
 }
 
 /**
  * Delete a proof image
- * @param imageUrl - The full URL of the image to delete
+ * @param imageUrl - Full URL of the image to delete
  */
 export async function deleteProofImage(imageUrl: string): Promise<void> {
   try {
-    // Extract the path from the URL
     const storageRef = ref(storage, imageUrl);
     await deleteObject(storageRef);
   } catch (error) {
-    console.error('Failed to delete proof image:', error);
-    // Don't throw - image deletion is not critical
+    console.error('Error deleting proof image:', error);
+    // Don't throw - image might already be deleted
   }
 }
 
 /**
- * Validate image file before upload
- * @param file - The file to validate
- * @returns Object with valid status and error message if invalid
+ * Validate image file
+ * @param file - File to validate
+ * @returns true if valid, throws error if not
  */
-export function validateProofImage(file: File): { valid: boolean; error?: string } {
-  // Check file type
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-  if (!allowedTypes.includes(file.type)) {
-    return { valid: false, error: 'Only JPEG, PNG, WebP, and GIF images are allowed' };
+export function validateProofImage(file: File): boolean {
+  const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+  
+  if (!ALLOWED_TYPES.includes(file.type)) {
+    throw new Error('Invalid file type. Only JPEG, PNG, WebP, and GIF are allowed.');
   }
   
-  // Check file size (max 5MB)
-  const maxSize = 5 * 1024 * 1024; // 5MB in bytes
-  if (file.size > maxSize) {
-    return { valid: false, error: 'Image size must be less than 5MB' };
+  if (file.size > MAX_SIZE) {
+    throw new Error('File too large. Maximum size is 5MB.');
   }
   
-  return { valid: true };
+  return true;
 }

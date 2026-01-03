@@ -84,17 +84,7 @@ export {
   lockScore,
   unlockScore,
   toggleScoreLock,
-  verifyScore,
-  rejectScore,
-  getPendingScores,
 } from './scores';
-
-// Storage operations (proof images)
-export {
-  uploadProofImage,
-  deleteProofImage,
-  validateProofImage,
-} from './storage';
 
 // Bracket Match operations (Day 3 Knockout)
 export {
@@ -121,6 +111,13 @@ export {
   subscribeToAnnouncements,
   subscribeToActiveAnnouncements,
 } from './announcements';
+
+// Storage operations (proof images)
+export {
+  uploadProofImage,
+  deleteProofImage,
+  validateProofImage,
+} from './storage';
 
 // Auth operations
 export {

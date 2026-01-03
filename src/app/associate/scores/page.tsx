@@ -29,15 +29,13 @@ import {
   Lock,
   CheckCircle,
   Upload,
-  Image as ImageIcon,
+  ImageIcon,
   X,
-  Clock,
-  ShieldCheck,
-  ShieldX,
+  Camera,
 } from "lucide-react";
 import { useTournament, useAuth } from "@/contexts";
 import { useToast } from "@/hooks/use-toast";
-import { uploadProofImage, validateProofImage } from "@/lib/firebase/storage";
+import { uploadProofImage, validateProofImage } from "@/lib/firebase";
 import Image from "next/image";
 
 // Free Fire BR Scoring System
@@ -54,12 +52,12 @@ export default function AssociateScoresPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   // Local score edits (only for my team)
-  const [localScore, setLocalScore] = useState<{ kills: number; placement: number } | null>(null);
+  const [localScore, setLocalScore] = useState<{ kills: number | null; placement: number | null } | null>(null);
   
-  // Proof image state
+  // Image proof state
   const [proofImage, setProofImage] = useState<File | null>(null);
-  const [proofImagePreview, setProofImagePreview] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
+  const [proofPreview, setProofPreview] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const myTeamId = associateAccount?.teamId;
@@ -116,8 +114,8 @@ export default function AssociateScoresPage() {
     // Otherwise initialize from server data
     const existing = scores.find(s => s.matchId === selectedMatchId && s.teamId === myTeamId);
     return {
-      kills: existing?.kills ?? 0,
-      placement: existing?.placement ?? 1,
+      kills: existing?.kills ?? null,
+      placement: existing?.placement ?? null,
     };
   }, [selectedMatchId, selectedMatch, scores, localScore, myTeamId]);
 
@@ -135,8 +133,8 @@ export default function AssociateScoresPage() {
       return;
     }
     setLocalScore(prev => ({
-      kills: prev?.kills ?? 0,
-      placement: prev?.placement ?? 1,
+      kills: prev?.kills ?? null,
+      placement: prev?.placement ?? null,
       [field]: value,
     }));
   };
@@ -146,33 +144,33 @@ export default function AssociateScoresPage() {
     return kills * KILL_POINTS + placementPts;
   };
 
-  // Handle proof image selection
+  // Handle image selection
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     
-    const validation = validateProofImage(file);
-    if (!validation.valid) {
+    try {
+      validateProofImage(file);
+      setProofImage(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setProofPreview(ev.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
       toast({
         title: "Invalid Image",
-        description: validation.error,
-        variant: "destructive"
+        description: err instanceof Error ? err.message : "Failed to select image",
+        variant: "destructive",
       });
-      return;
     }
-    
-    setProofImage(file);
-    // Create preview URL
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setProofImagePreview(e.target?.result as string);
-    };
-    reader.readAsDataURL(file);
   };
 
-  const removeProofImage = () => {
+  const clearProofImage = () => {
     setProofImage(null);
-    setProofImagePreview(null);
+    setProofPreview(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -187,39 +185,47 @@ export default function AssociateScoresPage() {
       return;
     }
     
-    // Require proof image for associates
-    if (!proofImage && !existingScore?.proofImageUrl) {
+    // Validate that kills and placement have been entered
+    if (currentScore.kills === null || currentScore.placement === null) {
       toast({
-        title: "Proof Required",
-        description: "Please upload a screenshot as proof of your score",
-        variant: "destructive"
+        title: "Missing Fields",
+        description: "Please enter both kills and placement",
+        variant: "destructive",
       });
       return;
     }
     
-    setIsSaving(true);
-    setIsUploading(true);
+    // Require proof image for new submissions
+    if (!existingScore && !proofImage) {
+      toast({
+        title: "Proof Required",
+        description: "Please upload a screenshot as proof before submitting",
+        variant: "destructive",
+      });
+      return;
+    }
     
+    const killsValue = currentScore.kills ?? 0;
+    const placementValue = currentScore.placement ?? 1;
+    
+    setIsSaving(true);
     try {
-      let imageUrl = existingScore?.proofImageUrl;
+      let proofImageUrl: string | undefined;
       
-      // Upload new image if selected
+      // Upload image if provided
       if (proofImage) {
-        imageUrl = await uploadProofImage(proofImage, selectedMatchId, myTeamId);
+        setIsUploadingImage(true);
+        proofImageUrl = await uploadProofImage(selectedMatchId, myTeamId, proofImage);
+        setIsUploadingImage(false);
       }
       
-      setIsUploading(false);
-      await setScore(selectedMatchId, myTeamId, currentScore.kills, currentScore.placement, saverId, selectedDay?.type, imageUrl);
+      await setScore(selectedMatchId, myTeamId, killsValue, placementValue, saverId, selectedDay?.type, proofImageUrl);
       setLocalScore(null);
-      setProofImage(null);
-      setProofImagePreview(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+      clearProofImage();
       toast({
         title: "Score Submitted! ✓",
-        description: `${currentScore.kills} kills, ${calculatePoints(currentScore.kills, currentScore.placement)} points. Awaiting admin verification.`,
-        duration: 4000,
+        description: `${killsValue} kills, ${calculatePoints(killsValue, placementValue)} points`,
+        duration: 3000,
       });
     } catch (err: unknown) {
       console.error("Failed to save:", err);
@@ -227,7 +233,6 @@ export default function AssociateScoresPage() {
       toast({ title: "Error", description: errMsg, variant: "destructive" });
     } finally {
       setIsSaving(false);
-      setIsUploading(false);
     }
   };
 
@@ -352,29 +357,6 @@ export default function AssociateScoresPage() {
                     <CheckCircle className="h-5 w-5" />
                     Score Submitted Successfully
                   </CardTitle>
-                  {/* Verification Status */}
-                  <div className="flex items-center gap-2 mt-2">
-                    {existingScore?.verificationStatus === 'pending' && (
-                      <Badge variant="outline" className="text-yellow-600 border-yellow-600 gap-1">
-                        <Clock className="h-3 w-3" /> Pending Verification
-                      </Badge>
-                    )}
-                    {existingScore?.verificationStatus === 'verified' && (
-                      <Badge variant="default" className="bg-green-600 gap-1">
-                        <ShieldCheck className="h-3 w-3" /> Verified by Admin
-                      </Badge>
-                    )}
-                    {existingScore?.verificationStatus === 'rejected' && (
-                      <Badge variant="destructive" className="gap-1">
-                        <ShieldX className="h-3 w-3" /> Rejected
-                      </Badge>
-                    )}
-                  </div>
-                  {existingScore?.rejectionReason && (
-                    <p className="text-sm text-destructive mt-2">
-                      <strong>Reason:</strong> {existingScore.rejectionReason}
-                    </p>
-                  )}
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
@@ -458,11 +440,11 @@ export default function AssociateScoresPage() {
                       <Input
                         type="number"
                         min={0}
-                        placeholder="0"
-                        value={currentScore.kills === 0 ? "" : currentScore.kills}
-                        onChange={(e) => updateLocalScore("kills", parseInt(e.target.value) || 0)}
+                        placeholder="Enter kills"
+                        value={currentScore.kills ?? ""}
+                        onChange={(e) => updateLocalScore("kills", e.target.value === "" ? 0 : parseInt(e.target.value) || 0)}
                         disabled={!canEdit}
-                        className="text-center font-bold text-2xl h-16 cursor-text transition-all focus:ring-2 ring-primary/20 placeholder:text-muted-foreground/50"
+                        className="text-center font-bold text-2xl h-16 cursor-text transition-all focus:ring-2 ring-primary/20"
                       />
                     </div>
                     <div className="space-y-2">
@@ -471,18 +453,18 @@ export default function AssociateScoresPage() {
                         type="number"
                         min={1}
                         max={12}
-                        placeholder="0"
-                        value={currentScore.placement === 1 ? "" : currentScore.placement}
-                        onChange={(e) => updateLocalScore("placement", parseInt(e.target.value) || 1)}
+                        placeholder="Enter # (1-12)"
+                        value={currentScore.placement ?? ""}
+                        onChange={(e) => updateLocalScore("placement", e.target.value === "" ? 1 : parseInt(e.target.value) || 1)}
                         disabled={!canEdit}
-                        className="text-center font-bold text-2xl h-16 cursor-text transition-all focus:ring-2 ring-primary/20 placeholder:text-muted-foreground/50"
+                        className="text-center font-bold text-2xl h-16 cursor-text transition-all focus:ring-2 ring-primary/20"
                       />
                     </div>
                     <div className="space-y-2 sm:col-span-2 md:col-span-1">
                       <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total Points</label>
                       <div className="h-16 flex items-center justify-center border-2 border-primary/20 rounded-md bg-primary/5">
                         <span className="text-4xl font-bold text-primary">
-                          {calculatePoints(currentScore.kills, currentScore.placement)}
+                          {calculatePoints(currentScore.kills ?? 0, currentScore.placement ?? 1)}
                         </span>
                       </div>
                     </div>
@@ -501,84 +483,96 @@ export default function AssociateScoresPage() {
                     </div>
                   </div>
 
-                  {/* Proof Image Upload Section */}
-                  <div className="p-4 bg-primary/5 rounded-lg border-2 border-primary/20 border-dashed">
-                    <div className="flex items-center gap-2 mb-3">
-                      <ImageIcon className="h-5 w-5 text-primary" />
-                      <p className="text-sm font-bold text-primary">Proof Screenshot (Required)</p>
+                  {/* Proof Image Upload */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                        <Camera className="h-4 w-4" />
+                        Proof Screenshot {!hasSubmittedScore && <span className="text-destructive">*Required</span>}
+                      </label>
+                      {existingScore?.proofImageUrl && (
+                        <Badge variant="secondary" className="text-xs gap-1">
+                          <CheckCircle className="h-3 w-3" /> Proof Uploaded
+                        </Badge>
+                      )}
                     </div>
-                    <p className="text-xs text-muted-foreground mb-4">
-                      Upload a screenshot showing your kills and placement as proof. This will be verified by admin.
-                    </p>
                     
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      accept="image/*"
                       onChange={handleImageSelect}
                       className="hidden"
                       disabled={!canEdit}
                     />
                     
-                    {/* Show existing proof image */}
-                    {existingScore?.proofImageUrl && !proofImagePreview && (
-                      <div className="mb-4">
-                        <p className="text-xs text-muted-foreground mb-2">Current proof image:</p>
-                        <div className="relative w-full max-w-md aspect-video rounded-lg overflow-hidden border border-border">
+                    {proofPreview ? (
+                      <div className="relative rounded-lg border-2 border-primary/30 overflow-hidden bg-muted/30">
+                        <div className="relative aspect-video w-full max-h-64">
                           <Image
-                            src={existingScore.proofImageUrl}
-                            alt="Proof screenshot"
-                            fill
-                            className="object-contain bg-muted"
-                          />
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Preview selected image */}
-                    {proofImagePreview && (
-                      <div className="relative mb-4">
-                        <p className="text-xs text-muted-foreground mb-2">New proof image:</p>
-                        <div className="relative w-full max-w-md aspect-video rounded-lg overflow-hidden border border-primary">
-                          <Image
-                            src={proofImagePreview}
+                            src={proofPreview}
                             alt="Proof preview"
                             fill
-                            className="object-contain bg-muted"
+                            className="object-contain"
                           />
-                          <Button
-                            variant="destructive"
-                            size="icon"
-                            className="absolute top-2 right-2 h-8 w-8"
-                            onClick={removeProofImage}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
+                        </div>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="absolute top-2 right-2 h-8 w-8 p-0"
+                          onClick={clearProofImage}
+                          disabled={!canEdit}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                        <div className="p-2 bg-background/80 border-t text-xs text-muted-foreground">
+                          {proofImage?.name} ({(proofImage?.size || 0 / 1024 / 1024).toFixed(2)} MB)
                         </div>
                       </div>
+                    ) : existingScore?.proofImageUrl ? (
+                      <div className="relative rounded-lg border-2 border-green-600/30 overflow-hidden bg-muted/30">
+                        <div className="relative aspect-video w-full max-h-64">
+                          <Image
+                            src={existingScore.proofImageUrl}
+                            alt="Submitted proof"
+                            fill
+                            className="object-contain"
+                          />
+                        </div>
+                        <div className="p-2 bg-green-600/10 border-t border-green-600/20 text-xs text-green-600 flex items-center gap-2">
+                          <CheckCircle className="h-3 w-3" /> Previously uploaded proof
+                        </div>
+                        {canEdit && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="absolute top-2 right-2"
+                            onClick={() => fileInputRef.current?.click()}
+                          >
+                            <Upload className="h-3 w-3 mr-1" /> Replace
+                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={!canEdit}
+                        className="w-full h-32 border-2 border-dashed border-muted-foreground/30 rounded-lg hover:border-primary/50 hover:bg-primary/5 transition-colors flex flex-col items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <div className="p-3 rounded-full bg-muted">
+                          <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                        <span className="text-sm text-muted-foreground">Click to upload proof screenshot</span>
+                        <span className="text-[10px] text-muted-foreground/70">JPEG, PNG, WebP • Max 5MB</span>
+                      </button>
                     )}
                     
-                    <Button
-                      variant="outline"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={!canEdit || isUploading}
-                      className="gap-2"
-                    >
-                      {isUploading ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Uploading...
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="h-4 w-4" />
-                          {proofImagePreview || existingScore?.proofImageUrl ? "Change Image" : "Upload Screenshot"}
-                        </>
-                      )}
-                    </Button>
-                    <p className="text-[10px] text-muted-foreground mt-2">
-                      Supported formats: JPEG, PNG, WebP, GIF (Max 5MB)
-                    </p>
+                    {isUploadingImage && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Uploading image...
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardContent>

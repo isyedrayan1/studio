@@ -40,12 +40,7 @@ function docToScore(docData: any, docId: string): Score {
     locked: docData.locked ?? false,
     lastUpdatedBy: docData.lastUpdatedBy,
     lastUpdatedAt: docData.lastUpdatedAt?.toDate?.()?.toISOString(),
-    // Proof/verification fields
     proofImageUrl: docData.proofImageUrl,
-    verificationStatus: docData.verificationStatus ?? 'pending',
-    verifiedBy: docData.verifiedBy,
-    verifiedAt: docData.verifiedAt?.toDate?.()?.toISOString(),
-    rejectionReason: docData.rejectionReason,
   };
 }
 
@@ -78,7 +73,7 @@ export async function getScore(matchId: string, teamId: string): Promise<Score |
   return docToScore(docSnap.data(), docSnap.id);
 }
 
-// Set/update score (upsert) - with optional proof image URL
+// Set/update score (upsert)
 const CHAMPION_RUSH_THRESHOLD = 8; // Kills needed for Champion Rush badge
 
 export async function setScore(
@@ -104,11 +99,8 @@ export async function setScore(
   // Champion Rush ONLY applies to Day 2 (br-championship)
   const hasChampionRush = dayType === 'br-championship' && kills >= CHAMPION_RUSH_THRESHOLD;
   
-  // Check if this is an associate submission (has proof image)
-  const isAssociateSubmission = !!proofImageUrl;
-  
   if (existingScore) {
-    const updateData: Record<string, any> = {
+    const updateData: Record<string, unknown> = {
       kills,
       placement,
       isBooyah,
@@ -116,16 +108,13 @@ export async function setScore(
       lastUpdatedBy: userId || 'unknown',
       lastUpdatedAt: serverTimestamp(),
     };
-    
-    // Add proof image if provided (associates)
-    if (proofImageUrl) {
+    // Only update proofImageUrl if provided
+    if (proofImageUrl !== undefined) {
       updateData.proofImageUrl = proofImageUrl;
-      updateData.verificationStatus = 'pending'; // Reset to pending on update
     }
-    
     await updateDoc(docRef, updateData);
   } else {
-    const newScoreData: Record<string, any> = {
+    await setDoc(docRef, {
       matchId,
       teamId,
       kills,
@@ -136,15 +125,8 @@ export async function setScore(
       lastUpdatedBy: userId || 'unknown',
       lastUpdatedAt: serverTimestamp(),
       createdAt: serverTimestamp(),
-    };
-    
-    // Add proof image if provided (associates)
-    if (proofImageUrl) {
-      newScoreData.proofImageUrl = proofImageUrl;
-      newScoreData.verificationStatus = 'pending';
-    }
-    
-    await setDoc(docRef, newScoreData);
+      proofImageUrl: proofImageUrl || null,
+    });
   }
 }
 
@@ -210,48 +192,4 @@ export async function toggleScoreLock(matchId: string, teamId: string): Promise<
     await lockScore(matchId, teamId);
     return true;
   }
-}
-
-// ============================================
-// SCORE VERIFICATION (ADMIN FUNCTIONS)
-// ============================================
-
-// Verify a score (admin approves the submitted proof)
-export async function verifyScore(
-  matchId: string,
-  teamId: string,
-  adminUserId: string
-): Promise<void> {
-  const scoreId = getScoreId(matchId, teamId);
-  const docRef = doc(db, COLLECTIONS.SCORES, scoreId);
-  await updateDoc(docRef, {
-    verificationStatus: 'verified',
-    verifiedBy: adminUserId,
-    verifiedAt: serverTimestamp(),
-    rejectionReason: null,
-  });
-}
-
-// Reject a score (admin rejects the submitted proof)
-export async function rejectScore(
-  matchId: string,
-  teamId: string,
-  adminUserId: string,
-  reason: string
-): Promise<void> {
-  const scoreId = getScoreId(matchId, teamId);
-  const docRef = doc(db, COLLECTIONS.SCORES, scoreId);
-  await updateDoc(docRef, {
-    verificationStatus: 'rejected',
-    verifiedBy: adminUserId,
-    verifiedAt: serverTimestamp(),
-    rejectionReason: reason,
-  });
-}
-
-// Get all pending scores (for admin verification page)
-export async function getPendingScores(): Promise<Score[]> {
-  const q = query(scoresRef, where('verificationStatus', '==', 'pending'));
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => docToScore(doc.data(), doc.id));
 }
