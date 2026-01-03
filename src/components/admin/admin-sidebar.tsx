@@ -29,6 +29,7 @@ import {
   Settings,
   UserCog,
   Shield,
+  ShieldCheck,
 } from "lucide-react";
 import { Logo } from "../icons/logo";
 import { Button } from "../ui/button";
@@ -179,6 +180,18 @@ export function AdminSidebar() {
             >
               <Trophy className="h-5 w-5" />
               <span>Scores</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+
+          {/* Score Verification */}
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              onClick={() => router.push("/admin/verification")}
+              isActive={pathname === "/admin/verification"}
+              className="text-lg tracking-wider"
+            >
+              <ShieldCheck className="h-5 w-5" />
+              <span>Verification</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
 

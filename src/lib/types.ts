@@ -103,6 +103,12 @@ export type Score = {
   locked?: boolean; // If true, associates cannot edit (admin only)
   lastUpdatedBy?: string; // User ID who last updated
   lastUpdatedAt?: string; // Timestamp of last update
+  // Proof image fields (for associate score verification)
+  proofImageUrl?: string; // URL to uploaded proof screenshot
+  verificationStatus?: 'pending' | 'verified' | 'rejected'; // Admin verification status
+  verifiedBy?: string; // Admin user ID who verified
+  verifiedAt?: string; // Timestamp of verification
+  rejectionReason?: string; // Reason if rejected
 };
 
 /**
