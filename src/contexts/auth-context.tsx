@@ -10,6 +10,7 @@ import { User as FirebaseUser } from 'firebase/auth';
 import type { User, AssociateAccount } from '@/lib/types';
 import {
   signIn as fbSignIn,
+  signInAnonymously as fbSignInAnonymously,
   signOut as fbSignOut,
   onAuthChange,
   getUserProfile,
@@ -82,12 +83,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Auth state will update via onAuthChange
   }, []);
 
-  // Sign in as associate (Firestore validation)
+  // Sign in as associate (Firestore validation + Anonymous Firebase Auth)
   const signInAssociate = useCallback(async (loginId: string, password: string) => {
     const account = await validateAssociateLogin(loginId, password);
     if (!account) {
       throw new Error('Invalid login credentials or account is disabled');
     }
+    
+    // Sign in to Firebase anonymously to enable Storage/Firestore rules
+    try {
+      await fbSignInAnonymously();
+    } catch (e) {
+      console.warn('Anonymous sign-in failed, but associate login proceeding:', e);
+    }
+
     setAssociateAccount(account);
     localStorage.setItem('associateAccount', JSON.stringify(account));
     setLoading(false);

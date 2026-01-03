@@ -122,6 +122,7 @@ export {
 // Auth operations
 export {
   signIn,
+  signInAnonymously,
   register,
   signOut,
   getCurrentUser,

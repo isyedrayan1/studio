@@ -5,6 +5,7 @@
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  signInAnonymously as firebaseSignInAnonymously,
   signOut as firebaseSignOut,
   onAuthStateChanged,
   User as FirebaseUser,
@@ -23,6 +24,12 @@ import type { User } from '../types';
 // Sign in with email/password
 export async function signIn(email: string, password: string): Promise<FirebaseUser> {
   const userCredential = await signInWithEmailAndPassword(auth, email, password);
+  return userCredential.user;
+}
+
+// Sign in anonymously (for associates)
+export async function signInAnonymously(): Promise<FirebaseUser> {
+  const userCredential = await firebaseSignInAnonymously(auth);
   return userCredential.user;
 }
 

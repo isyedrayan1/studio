@@ -19,21 +19,43 @@ export async function uploadProofImage(
   teamId: string,
   file: File
 ): Promise<string> {
-  // Create unique path: proof-images/{matchId}_{teamId}_{timestamp}.{ext}
-  const ext = file.name.split('.').pop() || 'jpg';
-  const timestamp = Date.now();
-  const path = `proof-images/${matchId}_${teamId}_${timestamp}.${ext}`;
-  
-  const storageRef = ref(storage, path);
-  
-  // Upload the file
-  const snapshot = await uploadBytes(storageRef, file, {
-    contentType: file.type,
-  });
-  
-  // Get and return the download URL
-  const downloadUrl = await getDownloadURL(snapshot.ref);
-  return downloadUrl;
+  try {
+    // Create unique path: proof-images/{matchId}_{teamId}_{timestamp}.{ext}
+    const ext = file.name.split('.').pop() || 'jpg';
+    const timestamp = Date.now();
+    const path = `proof-images/${matchId}_${teamId}_${timestamp}.${ext}`;
+    
+    console.log(`Attempting to upload to: ${path}`);
+    const storageRef = ref(storage, path);
+    
+    // Upload the file
+    const snapshot = await uploadBytes(storageRef, file, {
+      contentType: file.type,
+    });
+    
+    console.log('Upload successful, getting download URL...');
+    
+    // Get and return the download URL
+    const downloadUrl = await getDownloadURL(snapshot.ref);
+    return downloadUrl;
+  } catch (error: any) {
+    console.error('FIREBASE_STORAGE_ERROR:', {
+      code: error.code,
+      message: error.message,
+      serverResponse: error.serverResponse,
+      fullError: error
+    });
+    
+    if (error.code === 'storage/unauthorized') {
+      throw new Error('Permission denied. Please check your Firebase Storage rules.');
+    } else if (error.code === 'storage/retry-limit-exceeded') {
+      throw new Error('Upload timed out. Check your internet connection.');
+    } else if (error.code === 'storage/no-default-bucket') {
+      throw new Error('No storage bucket configured. Check your .env.local settings.');
+    }
+    
+    throw new Error(`Upload failed: ${error.message}`);
+  }
 }
 
 /**
