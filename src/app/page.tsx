@@ -251,14 +251,14 @@ export default function Home() {
               <motion.div className="space-y-3" variants={fadeInUp}>
                 <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl text-white font-semibold flex items-center justify-center gap-3">
                   <Swords className="h-6 w-6 md:h-8 md:w-8 text-primary" />
-                  Three Days of Intense Battle Royale Action
+                  Three Days of Intense Action
                   <Swords className="h-6 w-6 md:h-8 md:w-8 text-primary transform scale-x-[-1]" />
                 </p>
                 <p className="text-base md:text-lg lg:text-xl text-accent font-semibold">
                   Presented by <span className="text-primary">Thinkbotz Association</span> • AIML Department
                 </p>
                 <p className="text-sm md:text-base text-muted-foreground">
-                  Annamacharya Institute of Technology and Sciences, Kadapa-Chennur
+                  Annamacharya Institute of Technology and Sciences, Kadapa
                 </p>
               </motion.div>
             </motion.div>
