@@ -10,6 +10,7 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
+  deleteField,
   query,
   orderBy,
   onSnapshot,
@@ -45,7 +46,21 @@ export async function getDay(id: string): Promise<Day | null> {
   } as Day;
 }
 
-// Helper to remove undefined values
+// Helper to process update data - converts undefined to deleteField()
+function processUpdateData(obj: Record<string, unknown>): Record<string, unknown> {
+  const processed: Record<string, unknown> = {};
+  Object.entries(obj).forEach(([key, value]) => {
+    if (value === undefined) {
+      // Use deleteField() to remove the field from Firestore
+      processed[key] = deleteField();
+    } else {
+      processed[key] = value;
+    }
+  });
+  return processed;
+}
+
+// Helper to remove undefined values (for add operations)
 function removeUndefined(obj: Record<string, unknown>): Record<string, unknown> {
   const clean: Record<string, unknown> = {};
   Object.entries(obj).forEach(([key, value]) => {
@@ -63,9 +78,9 @@ export async function addDay(data: Omit<Day, 'id' | 'createdAt'>): Promise<strin
 
 // Update day
 export async function updateDay(id: string, data: Partial<Omit<Day, 'id' | 'createdAt'>>): Promise<void> {
-  const cleanData = removeUndefined(data as Record<string, unknown>);
+  const processedData = processUpdateData(data as Record<string, unknown>);
   const docRef = doc(db, COLLECTIONS.DAYS, id);
-  await updateDoc(docRef, cleanData);
+  await updateDoc(docRef, processedData);
 }
 
 // Delete day

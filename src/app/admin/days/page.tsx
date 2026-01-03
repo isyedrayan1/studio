@@ -216,6 +216,10 @@ export default function DaysPage() {
       if (newStatus === "completed") {
         updates.endTime = now;
       }
+      // Clear endTime when restarting a completed day
+      if (newStatus === "active" && day.status === "completed") {
+        updates.endTime = undefined;
+      }
 
       await updateDay(day.id, updates);
       toast({ title: "Status Updated", description: `Day ${day.dayNumber} is now ${STATUS_CONFIG[newStatus].label}` });
@@ -523,14 +527,24 @@ export default function DaysPage() {
                     </>
                   )}
                   {day.status === "completed" && (
-                    <Button
-                      size="sm"
-                      className="gap-1 bg-red-600 hover:bg-red-700"
-                      onClick={() => handleStatusChange(day, "locked")}
-                    >
-                      <Lock className="h-3 w-3" />
-                      Lock Results
-                    </Button>
+                    <>
+                      <Button
+                        size="sm"
+                        className="gap-1 bg-green-600 hover:bg-green-700"
+                        onClick={() => handleStatusChange(day, "active")}
+                      >
+                        <Play className="h-3 w-3" />
+                        Restart Day
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="gap-1 bg-red-600 hover:bg-red-700"
+                        onClick={() => handleStatusChange(day, "locked")}
+                      >
+                        <Lock className="h-3 w-3" />
+                        Lock Results
+                      </Button>
+                    </>
                   )}
                   {day.status === "locked" && (
                     <Badge variant="outline" className="gap-1 text-muted-foreground">

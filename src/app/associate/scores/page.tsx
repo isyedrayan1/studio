@@ -209,6 +209,11 @@ export default function AssociateScoresPage() {
     const placementValue = currentScore.placement ?? 1;
     
     setIsSaving(true);
+    toast({
+      title: "Submitting score...",
+      description: "Uploading proof and updating tournament data",
+    });
+
     try {
       let proofImageUrl: string | undefined;
       

@@ -35,6 +35,7 @@ function docToScore(docData: any, docId: string): Score {
     teamId: docData.teamId,
     kills: docData.kills ?? 0,
     placement: docData.placement ?? 0,
+    totalPoints: docData.totalPoints ?? 0,
     isBooyah: docData.isBooyah ?? false,
     hasChampionRush: docData.hasChampionRush ?? false,
     locked: docData.locked ?? false,
@@ -94,6 +95,12 @@ export async function setScore(
     throw new Error('Score is locked by admin');
   }
   
+  // Calculate points using Free Fire BR scoring
+  const KILL_POINTS = 1;
+  const PLACEMENT_POINTS = [12, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0]; // 1st to 12th
+  const placementPts = PLACEMENT_POINTS[placement - 1] ?? 0;
+  const totalPoints = (kills * KILL_POINTS) + placementPts;
+  
   // Calculate special flags
   const isBooyah = placement === 1;
   // Champion Rush ONLY applies to Day 2 (br-championship)
@@ -103,6 +110,7 @@ export async function setScore(
     const updateData: Record<string, unknown> = {
       kills,
       placement,
+      totalPoints,
       isBooyah,
       hasChampionRush,
       lastUpdatedBy: userId || 'unknown',
@@ -119,6 +127,7 @@ export async function setScore(
       teamId,
       kills,
       placement,
+      totalPoints,
       isBooyah,
       hasChampionRush,
       locked: false,

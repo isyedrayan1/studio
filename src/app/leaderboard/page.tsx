@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import html2canvas from "html2canvas";
 import { Button } from "@/components/ui/button";
@@ -253,6 +253,40 @@ export default function LeaderboardPage() {
   const [matchesDayId, setMatchesDayId] = useState<string>("all");
   const leaderboardRef = useRef<HTMLDivElement>(null);
 
+  // Auto-select active or most recent day on load
+  useEffect(() => {
+    if (days.length > 0) {
+      // 1. Try to find an active day
+      const activeDay = days.find(d => d.status === "active");
+      if (activeDay) {
+        setSelectedDayId(activeDay.id);
+        setMatchesDayId(activeDay.id);
+        return;
+      }
+
+      // 2. Try to find the most recent completed day
+      const completedDays = days
+        .filter(d => d.status === "completed" || d.status === "paused")
+        .sort((a, b) => b.dayNumber - a.dayNumber);
+      
+      if (completedDays.length > 0) {
+        setSelectedDayId(completedDays[0].id);
+        setMatchesDayId(completedDays[0].id);
+        return;
+      }
+
+      // 3. Fallback to the first upcoming day if any
+      const upcomingDays = days
+        .filter(d => d.status === "upcoming")
+        .sort((a, b) => a.dayNumber - b.dayNumber);
+      
+      if (upcomingDays.length > 0) {
+        setSelectedDayId(upcomingDays[0].id);
+        setMatchesDayId(upcomingDays[0].id);
+      }
+    }
+  }, [days]);
+
   const selectedDay = days.find(d => d.id === selectedDayId);
   const qualifyCount = selectedDay?.qualifyCount || 0;
 
@@ -459,7 +493,7 @@ export default function LeaderboardPage() {
 
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-display font-bold tracking-wider">
             <span className="bg-gradient-to-r from-primary via-orange-400 to-primary bg-clip-text text-transparent">
-              OVERALL STANDINGS
+              {selectedDayId === "all" ? "OVERALL STANDINGS" : `DAY ${selectedDay?.dayNumber} STANDINGS`}
             </span>
           </h1>
         </motion.div>

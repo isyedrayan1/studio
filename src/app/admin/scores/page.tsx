@@ -95,13 +95,14 @@ export default function ScoresPage() {
   }, [selectedMatchId, selectedMatch, scores, localScores]);
 
   const isMatchLocked = selectedMatch?.locked ?? false;
-  const canEdit = selectedDay?.status === "active" && selectedMatch?.status === "live" && !isMatchLocked;
+  // Admins can edit as long as match is unlocked - day/match status doesn't matter
+  const canEdit = !isMatchLocked;
 
   const updateLocalScore = (teamId: string, field: "kills" | "placement", value: number) => {
     if (!canEdit) {
       toast({
         title: "Cannot edit",
-        description: isMatchLocked ? "Match is locked" : "Day must be active and match must be live",
+        description: "Match is locked. Click 'Unlock Match' to edit scores.",
         variant: "destructive",
       });
       return;
@@ -124,9 +125,20 @@ export default function ScoresPage() {
     if (!selectedMatch || !userProfile) return;
 
     const matchScores = localScores[selectedMatchId];
-    if (!matchScores) return;
+    if (!matchScores || Object.keys(matchScores).length === 0) {
+      toast({
+        title: "No changes",
+        description: "You haven't made any edits to save.",
+      });
+      return;
+    }
 
     setIsSaving(true);
+    const savingToast = toast({
+      title: "Saving scores...",
+      description: `Updating ${Object.keys(matchScores).length} teams in real-time`,
+    });
+
     try {
       for (const teamId of Object.keys(matchScores)) {
         const { kills, placement } = matchScores[teamId];
@@ -134,8 +146,8 @@ export default function ScoresPage() {
       }
 
       toast({
-        title: "Scores Saved",
-        description: `Updated ${Object.keys(matchScores).length} teams`,
+        title: "Scores Saved! ✓",
+        description: `Successfully updated ${Object.keys(matchScores).length} teams`,
       });
 
       // Clear local edits
@@ -304,7 +316,7 @@ export default function ScoresPage() {
                 )}
               </CardTitle>
               <CardDescription className="mt-1">
-                {selectedMatch?.teamIds.length} teams • {canEdit ? "Editing enabled" : "Read-only"}
+                {selectedMatch?.teamIds.length} teams • {canEdit ? "Unlocked - Editable" : "Locked - Read-only"}
               </CardDescription>
             </div>
             <div className="flex gap-2">
