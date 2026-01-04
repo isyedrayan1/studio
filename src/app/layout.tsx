@@ -29,6 +29,8 @@ export const metadata: Metadata = {
   description: "Three-day esports tournament organized by Thinkbotz Association, AIML Dept, Annamacharya Institute of Technology and Sciences, Kadapa-Chennur",
 };
 
+import { ConditionalLayout } from "@/components/layout/conditional-layout";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -46,13 +48,9 @@ export default function RootLayout({
         <AuthProvider>
           <TournamentProvider>
             <SidebarProvider>
-              <div className="relative flex min-h-screen w-full flex-col">
-                <Header />
-                <div className="flex flex-1">
-                  {children}
-                </div>
-                <Footer />
-              </div>
+              <ConditionalLayout>
+                {children}
+              </ConditionalLayout>
             </SidebarProvider>
             <Toaster />
             <Analytics />

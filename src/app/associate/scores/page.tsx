@@ -164,7 +164,7 @@ export default function AssociateScoresPage() {
     });
 
     try {
-      await setScore(selectedMatchId, myTeamId, killsValue, placementValue, saverId, selectedDay?.type);
+      await setScore(selectedMatchId, myTeamId, killsValue, placementValue, saverId);
       setLocalScore(null);
       toast({
         title: "Score Submitted! ✓",
@@ -239,7 +239,7 @@ export default function AssociateScoresPage() {
               {filteredMatches.map((match) => (
                 <SelectItem key={match.id} value={match.id}>
                   <div className="flex items-center gap-2">
-                    <span>Match {match.matchNumber}</span>
+                    <span>{match.name || `Match ${match.matchNumber}`}</span>
                     {match.status === "live" && <Badge variant="default" className="text-xs">Live</Badge>}
                   </div>
                 </SelectItem>
@@ -365,58 +365,77 @@ export default function AssociateScoresPage() {
                 </Button>
               </CardHeader>
               <CardContent>
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Kills</label>
-                      <Input
-                        type="number"
-                        min={0}
-                        inputMode="numeric"
-                        placeholder="Enter kills"
-                        value={currentScore.kills ?? ""}
-                        onChange={(e) => updateLocalScore("kills", e.target.value)}
-                        disabled={!canEdit}
-                        className="text-center font-bold text-2xl h-16 cursor-text transition-all focus:ring-2 ring-primary/20"
-                      />
+                {/* CS Bracket Match - Different UI */}
+                {selectedMatch?.type === 'cs-bracket' ? (
+                  <div className="py-12 text-center">
+                    <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-8 max-w-md mx-auto border border-blue-200 dark:border-blue-900">
+                      <Trophy className="h-16 w-16 mx-auto text-blue-600 mb-4" />
+                      <h3 className="font-bold text-xl mb-2">CS Knockout Match</h3>
+                      <p className="text-muted-foreground mb-4">
+                        This is a CS (Clash Squad) bracket match. Winners are determined by admins after the match.
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        No score entry needed for CS matches.
+                      </p>
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Placement (1-12)</label>
-                      <Input
-                        type="number"
-                        min={1}
-                        max={12}
-                        inputMode="numeric"
-                        placeholder="Enter # (1-12)"
-                        value={currentScore.placement ?? ""}
-                        onChange={(e) => updateLocalScore("placement", e.target.value)}
-                        disabled={!canEdit}
-                        className="text-center font-bold text-2xl h-16 cursor-text transition-all focus:ring-2 ring-primary/20"
-                      />
+                  </div>
+                ) : (
+                  /* BR Match - Normal Score Entry */
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Kills</label>
+                        <Input
+                          type="number"
+                          min={0}
+                          inputMode="numeric"
+                          placeholder="Enter kills"
+                          value={currentScore.kills ?? ""}
+                          onChange={(e) => updateLocalScore("kills", e.target.value)}
+                          disabled={!canEdit}
+                          className="text-center font-bold text-2xl h-16 cursor-text transition-all focus:ring-2 ring-primary/20"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Placement (1-12)</label>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={12}
+                          inputMode="numeric"
+                          placeholder="Enter # (1-12)"
+                          value={currentScore.placement ?? ""}
+                          onChange={(e) => updateLocalScore("placement", e.target.value)}
+                          disabled={!canEdit}
+                          className="text-center font-bold text-2xl h-16 cursor-text transition-all focus:ring-2 ring-primary/20"
+                        />
+                      </div>
+                      <div className="space-y-2 sm:col-span-2 md:col-span-1">
+                        <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total Points</label>
+                        <div className="h-16 flex items-center justify-center border-2 border-primary/20 rounded-md bg-primary/5">
+                          <span className="text-4xl font-bold text-primary">
+                            {calculatePoints(currentScore.kills || 0, currentScore.placement || 0)}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="space-y-2 sm:col-span-2 md:col-span-1">
-                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total Points</label>
-                      <div className="h-16 flex items-center justify-center border-2 border-primary/20 rounded-md bg-primary/5">
-                        <span className="text-4xl font-bold text-primary">
-                          {calculatePoints(currentScore.kills ?? 0, currentScore.placement ?? 1)}
-                        </span>
+
+                    <div className="bg-muted/30 rounded-lg p-4 border border-border/40">
+                      <div className="grid grid-cols-2 gap-4 text-center">
+                        <div>
+                          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Kill Points</p>
+                          <p className="text-lg font-bold">{(currentScore.kills || 0) * KILL_POINTS}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Placement Points</p>
+                          <p className="text-lg font-bold">
+                            {currentScore.placement ? PLACEMENT_POINTS[currentScore.placement - 1] || 0 : 0}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
-
-                  <div className="p-4 bg-muted/40 rounded-lg border border-border/40">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Scoring Guide</p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-y-2 text-[10px]">
-                      <div>1st: <span className="font-bold">{PLACEMENT_POINTS[0]}</span></div>
-                      <div>2nd: <span className="font-bold">{PLACEMENT_POINTS[1]}</span></div>
-                      <div>3rd: <span className="font-bold">{PLACEMENT_POINTS[2]}</span></div>
-                      <div>4th: <span className="font-bold">{PLACEMENT_POINTS[3]}</span></div>
-                      <div>5th: <span className="font-bold">{PLACEMENT_POINTS[4]}</span></div>
-                      <div>6th: <span className="font-bold">{PLACEMENT_POINTS[5]}</span></div>
-                      <div>Kills: <span className="font-bold">{KILL_POINTS} / kill</span></div>
-                    </div>
-                  </div>
-                </div>
+                )}
               </CardContent>
             </Card>
           </div>

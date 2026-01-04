@@ -25,7 +25,6 @@ export type TournamentSettings = {
   killPoints: number; // Points per kill (default: 1)
   placementPoints: number[]; // Points by placement [1st, 2nd, 3rd...12th]
   maxTeamsPerMatch: number; // BR lobby limit (default: 12)
-  championRushThreshold?: number; // Points to trigger champion rush (Day 2)
 };
 
 /**
@@ -42,26 +41,25 @@ export type Team = {
   createdAt: string;
 };
 
+export type MatchType = 
+  | 'br-shortlist'      // Kill-based / Standard qualification
+  | 'br-championship'   // Standard BR matches
+  | 'cs-bracket';       // Elimination / Clash Squad logic
+
 /**
- * Day - A tournament day with a specific event type
+ * Day - A tournament day container
  */
 export type Day = {
   id: string;
   dayNumber: number;
   name: string; // "Shortlisting", "BR Championship", "CS Finals"
-  type: DayType;
   status: 'upcoming' | 'active' | 'paused' | 'completed' | 'locked';
-  qualifyCount?: number; // How many teams qualify from this day
+  qualifyCount?: number; // Default qualify count for matches on this day
   date?: string; // Date of the day (YYYY-MM-DD)
   startTime?: string; // Start time (HH:mm)
   endTime?: string; // End time (HH:mm)
   createdAt: string;
 };
-
-export type DayType = 
-  | 'br-shortlist'      // Day 1: Kill-based qualification
-  | 'br-championship'   // Day 2: Champion Rush logic
-  | 'cs-bracket';       // Day 3: Elimination bracket
 
 /**
  * Group - A grouping of teams for match formation
@@ -81,6 +79,8 @@ export type Match = {
   id: string;
   dayId: string;
   matchNumber: number;
+  name?: string; // Optional custom name for the match (e.g., "Grand Final", "Group A Match")
+  type: MatchType;
   groupIds: string[]; // Groups that combine for this match
   teamIds: string[]; // Direct team IDs participating in this match (derived from groups)
   status: 'upcoming' | 'live' | 'finished' | 'locked';
@@ -98,7 +98,6 @@ export type Score = {
   kills: number;
   placement: number; // 1 = first, 12 = last
   isBooyah?: boolean; // True if placement === 1 (winner)
-  hasChampionRush?: boolean; // True if kills >= 8 (Champion Rush badge for Day 2)
   totalPoints?: number; // Calculated: kills * killPoints + placementPoints[placement]
   locked?: boolean; // If true, associates cannot edit (admin only)
   lastUpdatedBy?: string; // User ID who last updated
@@ -160,8 +159,7 @@ export type LeaderboardEntry = {
   totalPoints: number;
   bestPlacement: number;
   isQualified: boolean;
-  hasChampionRush?: boolean; // For Day 2
-  hasBooyah?: boolean; // Got 1st place after champion rush
+  hasBooyah?: boolean; // Got 1st place
 };
 
 /**
@@ -220,5 +218,4 @@ export const DEFAULT_TOURNAMENT_SETTINGS: TournamentSettings = {
   killPoints: 1,
   placementPoints: [12, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0], // 1st to 12th
   maxTeamsPerMatch: 12,
-  championRushThreshold: 60,
 };

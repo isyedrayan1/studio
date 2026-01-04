@@ -37,7 +37,6 @@ function docToScore(docData: any, docId: string): Score {
     placement: docData.placement ?? 0,
     totalPoints: docData.totalPoints ?? 0,
     isBooyah: docData.isBooyah ?? false,
-    hasChampionRush: docData.hasChampionRush ?? false,
     locked: docData.locked ?? false,
     lastUpdatedBy: docData.lastUpdatedBy,
     lastUpdatedAt: docData.lastUpdatedAt?.toDate?.()?.toISOString(),
@@ -75,7 +74,6 @@ export async function getScore(matchId: string, teamId: string): Promise<Score |
 }
 
 // Set/update score (upsert)
-const CHAMPION_RUSH_THRESHOLD = 8; // Kills needed for Champion Rush badge
 
 export async function setScore(
   matchId: string,
@@ -83,7 +81,7 @@ export async function setScore(
   kills: number,
   placement: number,
   userId?: string,
-  dayType?: 'br-shortlist' | 'br-championship' | 'cs-bracket',
+  matchType?: 'br-shortlist' | 'br-championship' | 'cs-bracket',
   proofImageUrl?: string
 ): Promise<void> {
   const scoreId = getScoreId(matchId, teamId);
@@ -103,8 +101,6 @@ export async function setScore(
   
   // Calculate special flags
   const isBooyah = placement === 1;
-  // Champion Rush ONLY applies to Day 2 (br-championship)
-  const hasChampionRush = dayType === 'br-championship' && kills >= CHAMPION_RUSH_THRESHOLD;
   
   if (existingScore) {
     const updateData: Record<string, unknown> = {
@@ -112,7 +108,6 @@ export async function setScore(
       placement,
       totalPoints,
       isBooyah,
-      hasChampionRush,
       lastUpdatedBy: userId || 'unknown',
       lastUpdatedAt: serverTimestamp(),
     };
@@ -129,7 +124,6 @@ export async function setScore(
       placement,
       totalPoints,
       isBooyah,
-      hasChampionRush,
       locked: false,
       lastUpdatedBy: userId || 'unknown',
       lastUpdatedAt: serverTimestamp(),

@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -51,7 +52,7 @@ import {
 import Link from "next/link";
 import { useTournament } from "@/contexts";
 import { useToast } from "@/hooks/use-toast";
-import type { Match, Day } from "@/lib/types";
+import type { Match, Day, MatchType } from "@/lib/types";
 
 const STATUS_CONFIG = {
   upcoming: { label: "Upcoming", color: "bg-slate-500" },
@@ -76,6 +77,8 @@ export default function MatchesPage() {
 
   // Form states
   const [formDayId, setFormDayId] = useState("");
+  const [formName, setFormName] = useState(""); // Optional match name
+  const [formType, setFormType] = useState<MatchType>("br-shortlist");
   const [formGroupIds, setFormGroupIds] = useState<string[]>([]);
   const [formTeamIds, setFormTeamIds] = useState<string[]>([]);
   const [selectionMode, setSelectionMode] = useState<"groups" | "teams">("groups");
@@ -84,29 +87,19 @@ export default function MatchesPage() {
     ? matches
     : matches.filter(m => m.dayId === selectedDayId);
 
-  // Helper to check if a day uses groups (br-shortlist) or direct teams
-  const getDayType = (dayId: string) => {
-    const day = days.find(d => d.id === dayId);
-    return day?.type || "br-shortlist";
-  };
+  // Helper to check if selection should use groups or teams
+  const isGroupBasedMatch = (matchType: MatchType) => matchType === "br-shortlist";
 
-  const isGroupBasedDay = (dayId: string) => getDayType(dayId) === "br-shortlist";
-
-  // Calculate qualified teams from previous stage (br-shortlist) based on scores
+  // Calculate qualified teams from previous stage (br-shortlist matches) based on scores
   const qualifiedTeamsFromPreviousStage = useMemo(() => {
-    // Find the latest completed or active shortlist day
-    const shortlistDay = days
-      .filter(d => d.type === "br-shortlist")
-      .sort((a, b) => b.dayNumber - a.dayNumber)[0];
+    // Collect all matches that are of type 'br-shortlist'
+    const shortlistMatches = matches.filter(m => m.type === "br-shortlist");
 
-    if (!shortlistDay) return [];
+    if (shortlistMatches.length === 0) return [];
 
-    // Get all matches for that day
-    const dayMatches = matches.filter(m => m.dayId === shortlistDay.id);
-
-    // Collect all scores for that day
+    // Collect all scores for those matches
     const teamScores: Record<string, { kills: number; points: number }> = {};
-    dayMatches.forEach(match => {
+    shortlistMatches.forEach(match => {
       match.teamIds.forEach(teamId => {
         const score = scores.find(s => s.matchId === match.id && s.teamId === teamId);
         if (!teamScores[teamId]) teamScores[teamId] = { kills: 0, points: 0 };
@@ -124,19 +117,17 @@ export default function MatchesPage() {
   }, [days, matches, scores]);
 
   // Get qualified teams based on Day's qualifyCount
-  const getQualifiedTeams = (forDayType: string) => {
-    if (forDayType === 'br-championship') {
-      // Find the shortlist day this championship follows
-      const shortlistDay = days.find(d => d.type === 'br-shortlist');
-      return qualifiedTeamsFromPreviousStage.slice(0, shortlistDay?.qualifyCount || 12);
+  const getQualifiedTeams = (forMatchType: string) => {
+    if (forMatchType === 'br-championship') {
+      // Logic for calculating qualified teams from previous matches
+      return qualifiedTeamsFromPreviousStage.slice(0, 12);
     }
-    // For bracket, this is handled separately
     return [];
   };
 
   const getDayName = (dayId: string) => {
     const day = days.find(d => d.id === dayId);
-    return day ? `Day ${day.dayNumber}` : "Unknown";
+    return day ? day.name : "Unknown";
   };
 
   const getNextMatchNumber = (dayId: string) => {
@@ -156,6 +147,7 @@ export default function MatchesPage() {
 
   const resetForm = () => {
     setFormDayId(days[0]?.id || "");
+    setFormName("");
     setFormGroupIds([]);
     setFormTeamIds([]);
   };
@@ -163,25 +155,19 @@ export default function MatchesPage() {
   const openAddDialog = () => {
     const dayToUse = selectedDayId !== "all" ? selectedDayId : days[0]?.id || "";
     setFormDayId(dayToUse);
+    setFormName("");
+    setFormType("br-shortlist");
     setFormGroupIds([]);
-    // For non-group days (Day 2), pre-populate with qualified teams from Day 1
-    const dayType = getDayType(dayToUse);
-    if (dayType === 'br-championship') {
-      setFormTeamIds(getQualifiedTeams('br-championship'));
-      setSelectionMode("teams");
-    } else if (dayType === 'br-shortlist') {
-      setSelectionMode("groups");
-      setFormTeamIds([]);
-    } else {
-      setSelectionMode("teams");
-      setFormTeamIds([]);
-    }
+    setSelectionMode("groups");
+    setFormTeamIds([]);
     setIsAddOpen(true);
   };
 
   const openEditDialog = (match: Match) => {
     setSelectedMatch(match);
     setFormDayId(match.dayId);
+    setFormName(match.name || "");
+    setFormType(match.type || "br-shortlist");
     setFormGroupIds([...match.groupIds]);
     setFormTeamIds([...match.teamIds]);
     setSelectionMode(match.groupIds.length > 0 ? "groups" : "teams");
@@ -211,19 +197,6 @@ export default function MatchesPage() {
 
   const handleDayChange = (dayId: string) => {
     setFormDayId(dayId);
-    setFormGroupIds([]);
-    // For Day 2, pre-populate with qualified teams from Day 1
-    const dayType = getDayType(dayId);
-    if (dayType === 'br-championship') {
-      setSelectionMode("teams");
-      setFormTeamIds(getQualifiedTeams('br-championship'));
-    } else if (dayType === 'br-shortlist') {
-      setSelectionMode("groups");
-      setFormTeamIds([]);
-    } else {
-      setSelectionMode("teams");
-      setFormTeamIds([]);
-    }
   };
 
   const handleAdd = async () => {
@@ -234,16 +207,18 @@ export default function MatchesPage() {
     setIsSubmitting(true);
     try {
       const matchNumber = getNextMatchNumber(formDayId);
-      // Use groups for br-shortlist, direct teams for others
       const teamIds = selectionMode === "groups" ? getTeamsFromGroups(formGroupIds) : formTeamIds;
+
       await addMatch({
         dayId: formDayId,
         matchNumber,
+        name: formName.trim() || undefined, // Only save if not empty
+        type: formType,
         groupIds: selectionMode === "groups" ? formGroupIds : [],
         teamIds,
         status: "upcoming",
       });
-      toast({ title: "Success", description: `Match ${matchNumber} created` });
+      toast({ title: "Success", description: `Match ${matchNumber} (${formType}) created` });
       setIsAddOpen(false);
       resetForm();
     } catch (err: unknown) {
@@ -260,8 +235,11 @@ export default function MatchesPage() {
     setIsSubmitting(true);
     try {
       const teamIds = selectionMode === "groups" ? getTeamsFromGroups(formGroupIds) : formTeamIds;
+
       await updateMatch(selectedMatch.id, {
         dayId: formDayId,
+        name: formName.trim() || undefined, // Only save if not empty
+        type: formType,
         groupIds: selectionMode === "groups" ? formGroupIds : [],
         teamIds,
       });
@@ -393,7 +371,12 @@ export default function MatchesPage() {
               <Card key={match.id}>
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xl font-bold">Match {match.matchNumber}</h3>
+                    <h3 className="text-xl font-bold">
+                      {match.name || `Match ${match.matchNumber}`}
+                    </h3>
+                    {match.name && (
+                      <p className="text-xs text-muted-foreground">Match #{match.matchNumber}</p>
+                    )}
                     <div className="flex items-center gap-2">
                       <Badge variant="outline">{getDayName(match.dayId)}</Badge>
                       <Badge className={`${STATUS_CONFIG[match.status].color} text-white`}>
@@ -407,8 +390,8 @@ export default function MatchesPage() {
                     <Users className="h-4 w-4" />
                     <span>{match.teamIds.length} teams</span>
                   </div>
-                  {/* Show groups for Day 1 */}
-                  {isGroupBasedDay(match.dayId) && match.groupIds.length > 0 && (
+                  {/* Show group names if groups were used */}
+                  {match.groupIds.length > 0 && (
                     <div className="flex flex-wrap gap-1">
                       {match.groupIds.map((gId) => {
                         const group = groups.find(g => g.id === gId);
@@ -420,8 +403,8 @@ export default function MatchesPage() {
                       })}
                     </div>
                   )}
-                  {/* Show team names for Day 2+ */}
-                  {!isGroupBasedDay(match.dayId) && match.teamIds.length > 0 && (
+                  {/* Show team names if direct teams were used (and no groups) */}
+                  {match.groupIds.length === 0 && match.teamIds.length > 0 && (
                     <div className="flex flex-wrap gap-1">
                       {match.teamIds.slice(0, 6).map((teamId) => {
                         const team = getTeamById(teamId);
@@ -439,8 +422,13 @@ export default function MatchesPage() {
                     </div>
                   )}
                 </CardContent>
-                <Separator />
                 <CardFooter className="pt-3 flex flex-wrap gap-2">
+                  <div className="w-full flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold uppercase text-muted-foreground flex items-center gap-1">
+                      <Info className="h-3 w-3" />
+                      Type: {match.type || 'Standard'}
+                    </span>
+                  </div>
                   {/* Status Actions */}
                   {match.status === "upcoming" && (
                     <Button size="sm" className="gap-1 bg-green-600 hover:bg-green-700" onClick={() => handleStatusChange(match, "live")}>
@@ -485,7 +473,8 @@ export default function MatchesPage() {
                 "Choose participant selection method."}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <ScrollArea className="max-h-[60vh] -mx-6 px-6">
+            <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Day</Label>
               <Select value={formDayId} onValueChange={handleDayChange}>
@@ -503,7 +492,37 @@ export default function MatchesPage() {
               {formDayId && <p className="text-xs text-muted-foreground">Match #{getNextMatchNumber(formDayId)}</p>}
             </div>
 
-            {/* Selection Mode */}
+            <div className="space-y-2">
+              <Label>Match Name (Optional)</Label>
+              <Input
+                placeholder="e.g., Grand Final, Semi-Final 1"
+                value={formName}
+                onChange={(e) => setFormName(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">Leave empty to use default "Match #"</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Match Logic / Type</Label>
+              <Select value={formType} onValueChange={(v) => setFormType(v as MatchType)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select logic type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="br-shortlist">Shortlisting (Standard BR)</SelectItem>
+                  <SelectItem value="br-championship">Grand Finals (Standard BR)</SelectItem>
+                  <SelectItem value="cs-bracket">CS Bracket (Elimination)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tight">
+                {formType === 'br-shortlist' && "Focus on kills and standard qualification"}
+                {formType === 'br-championship' && "Standard BR logic for final stages"}
+                {formType === 'cs-bracket' && "Used for knockout elimination stages"}
+              </p>
+            </div>
+
+            <Separator />
+
             <div className="space-y-3">
               <Label>Selection Method</Label>
               <RadioGroup
@@ -595,7 +614,8 @@ export default function MatchesPage() {
                 </ScrollArea>
               </div>
             )}
-          </div>
+            </div>
+          </ScrollArea>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
             <Button onClick={handleAdd} disabled={isSubmitting || !formDayId}>
@@ -615,7 +635,8 @@ export default function MatchesPage() {
                 "Update match participants."}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <ScrollArea className="max-h-[60vh] -mx-6 px-6">
+            <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Day</Label>
               <Select value={formDayId} onValueChange={handleDayChange}>
@@ -632,9 +653,39 @@ export default function MatchesPage() {
               </Select>
             </div>
 
+            <div className="space-y-2">
+              <Label>Match Name (Optional)</Label>
+              <Input
+                placeholder="e.g., Grand Final, Semi-Final 1"
+                value={formName}
+                onChange={(e) => setFormName(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">Leave empty to use default "Match #"</p>
+            </div>
 
 
-            {/* Selection Mode */}
+
+            <div className="space-y-2">
+              <Label>Match Logic / Type</Label>
+              <Select value={formType} onValueChange={(v) => setFormType(v as MatchType)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select logic type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="br-shortlist">Shortlisting (Standard BR)</SelectItem>
+                  <SelectItem value="br-championship">Grand Finals (Standard BR)</SelectItem>
+                  <SelectItem value="cs-bracket">CS Bracket (Elimination)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tight">
+                {formType === 'br-shortlist' && "Focus on kills and standard qualification"}
+                {formType === 'br-championship' && "Standard BR logic for final stages"}
+                {formType === 'cs-bracket' && "Used for knockout elimination stages"}
+              </p>
+            </div>
+
+            <Separator />
+
             <div className="space-y-3">
               <Label>Selection Method</Label>
               <RadioGroup
@@ -709,7 +760,8 @@ export default function MatchesPage() {
                 </ScrollArea>
               </div>
             )}
-          </div>
+            </div>
+          </ScrollArea>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
             <Button onClick={handleEdit} disabled={isSubmitting}>

@@ -166,7 +166,7 @@ export default function AdminVerificationPage() {
                 return (
                   <SelectItem key={match.id} value={match.id}>
                     <div className="flex items-center gap-2">
-                      <span>Match {match.matchNumber}</span>
+                      <span>{match.name || `Match ${match.matchNumber}`}</span>
                       {matchDay && <span className="text-muted-foreground text-xs">• Day {matchDay.dayNumber}</span>}
                       <Badge variant="outline" className="text-xs">
                         {proofsCount}/{matchScoresCount} proofs
@@ -226,7 +226,7 @@ export default function AdminVerificationPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Target className="h-5 w-5 text-primary" />
-                Match {selectedMatch?.matchNumber} - Scores & Proof
+                {selectedMatch?.name || `Match ${selectedMatch?.matchNumber}`} - Scores & Proof
               </CardTitle>
               <CardDescription>
                 {selectedDay?.name} • {matchScores.length} teams • {matchScores.filter(s => s.proofImageUrl).length} with proof

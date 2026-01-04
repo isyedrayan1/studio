@@ -51,7 +51,7 @@ export function CelebrationDialog({
       case 2:
         return {
           title: "🔥 Day 2 Complete!",
-          subtitle: "Champion Rush Championship",
+          subtitle: "BR Championship",
           description: `${qualifiedTeams.length} elite teams advance to finals!`,
           icon: <Sparkles className="h-16 w-16 text-accent" />,
           buttonText: "Proceed to Bracket Setup",
@@ -217,11 +217,7 @@ export function CelebrationDialog({
                           🏆 Booyah
                         </Badge>
                       )}
-                      {entry.hasChampionRush && (
-                        <Badge variant="secondary" className="mt-1 ml-1">
-                          🔥 CR
-                        </Badge>
-                      )}
+
                     </div>
                   </div>
                 ))}
@@ -247,14 +243,7 @@ export function CelebrationDialog({
                 <div className="text-sm text-muted-foreground">Booyahs</div>
               </CardContent>
             </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <div className="text-3xl font-bold text-primary">
-                  {qualifiedTeams.filter(t => t.hasChampionRush).length}
-                </div>
-                <div className="text-sm text-muted-foreground">Champion Rush</div>
-              </CardContent>
-            </Card>
+
           </div>
 
           {/* Action Buttons */}

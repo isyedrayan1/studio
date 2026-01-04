@@ -68,7 +68,6 @@ export default function AdminSetupPage() {
             1: 15, 2: 12, 3: 10, 4: 8, 5: 6,
             6: 5, 7: 4, 8: 3, 9: 2, 10: 1, 11: 0, 12: 0
           },
-          championRushThreshold: 60,
           maxTeamsPerMatch: 12,
           createdAt: new Date().toISOString(),
         });

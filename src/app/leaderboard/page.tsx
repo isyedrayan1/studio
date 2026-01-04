@@ -3,7 +3,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import html2canvas from "html2canvas";
-import { Button } from "@/components/ui/button";
+import { Button as ShadcnButton } from "@/components/ui/button"; // Renamed to avoid conflict if we use custom button
 import {
   Select,
   SelectContent,
@@ -13,38 +13,39 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Loader2, Trophy, Flame, Target, Crosshair, Crown, Sparkles, Play, Clock, Lock, CheckCircle, Download, Share2 } from "lucide-react";
+import { Share2, Download, Trophy, Target, Loader2, Clock, ChevronRight, Crown, Medal, X, FileText, FileDown, Lock, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import { useTournament } from "@/contexts";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { exportLeaderboardAsPDF, exportMatchAsPDF, exportAllMatchesAsPDF } from "@/lib/export-leaderboard";
+import AnimatedTitle from "@/components/zodius/AnimatedTitle";
+import Button from "@/components/zodius/Button";
 
 const PLACEMENT_POINTS = [12, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0];
 const KILL_POINTS = 1;
 
-// Animated background component
-const AnimatedBackground = () => (
-  <div className="absolute inset-0 overflow-hidden pointer-events-none">
-    <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-b from-primary/20 to-transparent" />
-    <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-accent/15 to-transparent" />
-    <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-primary/15 to-transparent" />
+// Animated background component - Removed for clean black bg as per other pages
+const Background = () => (
+  <div className="absolute inset-0 overflow-hidden pointer-events-none bg-black">
+    {/* Clean black background to match landing page */}
   </div>
 );
 
-// Compact rank badge
+// Rank Badge - Updated styling
 const RankBadge = ({ rank, size = "md" }: { rank: number; size?: "sm" | "md" }) => {
   const getRankStyle = () => {
-    if (rank === 1) return "from-yellow-500 via-yellow-400 to-yellow-600 text-black";
-    if (rank === 2) return "from-gray-300 via-gray-200 to-gray-400 text-black";
-    if (rank === 3) return "from-amber-600 via-amber-500 to-amber-700 text-black";
-    return "from-zinc-700 via-zinc-600 to-zinc-800 text-white";
+    if (rank === 1) return "bg-yellow-300 text-black";
+    if (rank === 2) return "bg-gray-300 text-black";
+    if (rank === 3) return "bg-yellow-600 text-white";
+    return "bg-zinc-800 text-gray-400";
   };
 
   const sizeClass = size === "sm" ? "w-6 h-6 text-xs" : "w-8 h-8 text-base";
 
   return (
     <div className={cn(
-      "rounded flex items-center justify-center font-display font-bold bg-gradient-to-br",
+      "rounded-full flex items-center justify-center font-zentry font-black",
       sizeClass,
       getRankStyle()
     )}>
@@ -53,7 +54,7 @@ const RankBadge = ({ rank, size = "md" }: { rank: number; size?: "sm" | "md" }) 
   );
 };
 
-// Compact team row for two-column layout
+// Compact team row - Updated styling
 const CompactTeamRow = ({ 
   stat, 
   rank, 
@@ -68,20 +69,20 @@ const CompactTeamRow = ({
   index: number;
 }) => {
   const getRowStyle = () => {
-    if (rank === 1) return "bg-gradient-to-r from-yellow-900/50 via-yellow-800/30 to-yellow-900/20 border-l-yellow-500";
-    if (rank === 2) return "bg-gradient-to-r from-gray-600/40 via-gray-700/30 to-gray-800/20 border-l-gray-400";
-    if (rank === 3) return "bg-gradient-to-r from-amber-900/40 via-amber-800/30 to-amber-900/20 border-l-amber-600";
-    if (isQualified) return "bg-gradient-to-r from-green-900/30 via-green-800/20 to-green-900/10 border-l-green-500";
-    return "bg-gradient-to-r from-zinc-800/60 via-zinc-800/40 to-zinc-800/20 border-l-zinc-600";
+    if (rank === 1) return "border-l-4 border-yellow-300 bg-yellow-300/5";
+    if (rank === 2) return "border-l-4 border-gray-300 bg-gray-300/5";
+    if (rank === 3) return "border-l-4 border-yellow-600 bg-yellow-600/5";
+    if (isQualified) return "border-l-4 border-green-500 bg-green-500/5";
+    return "border-l-2 border-zinc-800 hover:bg-zinc-800/30";
   };
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: rank <= 9 ? -20 : 20 }}
+      initial={{ opacity: 0, x: -10 }}
       animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.3, delay: index * 0.02 }}
+      transition={{ duration: 0.3, delay: index * 0.05 }}
       className={cn(
-        "grid grid-cols-[32px_8px_1fr_36px_42px_42px_42px_52px] gap-0.5 items-center px-2 py-2 rounded border-l-3 hover:brightness-110 transition-all",
+        "grid grid-cols-[32px_12px_1fr_40px_48px_48px_48px_60px] gap-1 items-center px-4 py-3 rounded-r-lg transition-all mb-2",
         getRowStyle()
       )}
     >
@@ -91,45 +92,51 @@ const CompactTeamRow = ({
       <div />
       
       <div className="min-w-0 flex items-center">
-        <span className="font-display text-lg truncate tracking-widest">
+        <span className={cn(
+          "font-zentry text-xl md:text-2xl truncate uppercase tracking-wide",
+          rank === 1 ? "text-yellow-300" :
+          rank === 2 ? "text-gray-300" :
+          rank === 3 ? "text-yellow-600" :
+          "text-white"
+        )}>
           {team?.name || "Unknown"}
         </span>
       </div>
 
       {/* Games Played */}
-      <div className="text-center text-sm text-muted-foreground font-medium">
+      <div className="text-center font-circular-web text-sm text-gray-500">
         {stat.matchesPlayed}
       </div>
 
       {/* Total Kills */}
-      <div className="text-center text-sm font-bold text-primary">
+      <div className="text-center font-zentry text-lg text-red-500">
         {stat.totalKills}
       </div>
 
       {/* Placement Points */}
-      <div className="text-center text-sm font-semibold text-accent">
+      <div className="text-center font-zentry text-lg text-blue-400">
         {stat.totalPlacement}
       </div>
 
       {/* Booyah Count */}
       <div className="text-center text-sm">
         {stat.booyahCount > 0 ? (
-          <span className="text-yellow-400 font-bold flex items-center justify-center gap-0.5">
-            <Crown className="w-3.5 h-3.5" />
+          <span className="text-yellow-400 font-black font-zentry flex items-center justify-center gap-1">
+            <Crown className="w-3 h-3" />
             {stat.booyahCount}
           </span>
         ) : (
-          <span className="text-muted-foreground">-</span>
+          <span className="text-gray-600">-</span>
         )}
       </div>
 
       {/* Total Points */}
       <div className="text-center">
         <span className={cn(
-          "font-display text-base font-bold",
+          "font-zentry text-2xl font-black",
           rank === 1 ? "text-yellow-300" :
-          rank === 2 ? "text-gray-200" :
-          rank === 3 ? "text-amber-300" :
+          rank === 2 ? "text-gray-300" :
+          rank === 3 ? "text-yellow-600" :
           "text-white"
         )}>
           {stat.totalPoints}
@@ -139,19 +146,21 @@ const CompactTeamRow = ({
   );
 };
 
-// Match card component
+// Match card component - Updated styling
 const MatchCard = ({ 
   match, 
   matchDay, 
   standings, 
   getTeamById,
-  index 
+  index,
+  onExportPDF,
 }: { 
   match: any;
   matchDay: any;
   standings: any[];
   getTeamById: (id: string) => any;
   index: number;
+  onExportPDF: () => void;
 }) => {
   const isLive = match.status === 'live';
   const isFinished = match.status === 'finished';
@@ -162,56 +171,92 @@ const MatchCard = ({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: index * 0.05 }}
       className={cn(
-        "rounded-lg overflow-hidden border backdrop-blur-sm",
-        isLive ? "border-primary shadow-lg shadow-primary/20" : "border-zinc-700/50",
-        "bg-zinc-900/50"
+        "rounded-xl overflow-hidden border bg-zinc-900/50",
+        isLive ? "border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.2)]" : "border-zinc-800"
       )}
     >
       {/* Match Header */}
       <div className={cn(
-        "px-3 py-2 flex items-center justify-between",
-        isLive ? "bg-primary/20" : "bg-zinc-800/50"
+        "px-4 py-3 flex items-center justify-between",
+        isLive ? "bg-red-500/10" : "bg-zinc-800/50"
       )}>
-        <div className="flex items-center gap-2">
-          <Target className={cn("w-4 h-4", isLive ? "text-primary" : "text-muted-foreground")} />
-          <span className="font-display text-base tracking-wide">
-            Match {match.matchNumber || 1}
-          </span>
-          <span className="text-xs text-muted-foreground">• Day {matchDay?.dayNumber}</span>
+        <div className="flex items-center gap-3">
+          <div className={cn(
+            "w-8 h-8 rounded flex items-center justify-center",
+            isLive ? "bg-red-500 text-black" : "bg-zinc-700 text-gray-400"
+          )}>
+            <Target className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="font-zentry text-lg uppercase">
+              {match.name || `Match ${match.matchNumber || 1}`}
+            </div>
+            <div className="text-xs font-circular-web text-gray-400 uppercase tracking-wider">
+              Day {matchDay?.dayNumber}
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
+          {(isFinished || match.status === 'locked') && (
+            <button 
+              onClick={(e) => { e.stopPropagation(); onExportPDF(); }}
+              className="p-1 rounded-md hover:bg-zinc-800 text-gray-400 hover:text-white transition-colors"
+              title="Download PDF"
+            >
+              <FileDown className="w-4 h-4" />
+            </button>
+          )}
           {isLive && (
-            <Badge className="bg-primary/90 text-white text-xs px-1.5 py-0 gap-1">
-              <Play className="w-2.5 h-2.5" /> LIVE
-            </Badge>
+            <span className="bg-red-500 text-black text-[10px] font-black font-general px-2 py-0.5 rounded uppercase animate-pulse">
+              LIVE
+            </span>
           )}
           {isFinished && (
-            <Badge className="bg-green-600/90 text-white text-xs px-1.5 py-0">
-              <CheckCircle className="w-2.5 h-2.5 mr-0.5" /> Done
-            </Badge>
+            <span className="bg-green-500 text-black text-[10px] font-bold font-general px-2 py-0.5 rounded uppercase flex items-center gap-1">
+              <CheckCircle className="w-3 h-3" />
+              Finished
+            </span>
+          )}
+          {match.status === 'locked' && (
+            <span className="bg-zinc-700 text-gray-300 text-[10px] font-bold font-general px-2 py-0.5 rounded uppercase flex items-center gap-1">
+              <Lock className="w-3 h-3" />
+              Locked
+            </span>
           )}
           {match.status === "upcoming" && (
-            <Badge variant="secondary" className="text-xs px-1.5 py-0">
-              <Clock className="w-2.5 h-2.5 mr-0.5" /> Soon
-            </Badge>
+            <span className="bg-zinc-700 text-gray-300 text-[10px] font-medium font-general px-2 py-0.5 rounded uppercase">
+              Soon
+            </span>
           )}
         </div>
       </div>
 
       {/* Match Standings - Single Column */}
-      <div className="p-2">
+      <div className="p-3">
         {/* Column Header */}
-        <div className="grid grid-cols-[28px_8px_1fr_40px_40px_50px] gap-1 px-2 py-1.5 text-[10px] font-display text-muted-foreground tracking-wider border-b border-zinc-700/50">
-          <div className="text-center">#</div>
+        <div className={cn(
+          "grid gap-1 px-2 py-2 text-[10px] font-general uppercase text-gray-500 tracking-wider",
+          match.type === 'cs-bracket' 
+            ? "grid-cols-[32px_8px_1fr_120px]" 
+            : "grid-cols-[32px_8px_1fr_40px_40px_50px]"
+        )}>
+          <div className="text-center">Rank</div>
           <div />
           <div>TEAM</div>
-          <div className="text-center">K</div>
-          <div className="text-center">PL</div>
-          <div className="text-center">PTS</div>
+          {match.type !== 'cs-bracket' && (
+            <>
+              <div className="text-center">Kills</div>
+              <div className="text-center">Place</div>
+              <div className="text-center">PTS</div>
+            </>
+          )}
+          {match.type === 'cs-bracket' && (
+            <div className="text-center">Result</div>
+          )}
         </div>
 
         {/* All Teams in Single Column */}
-        <div className="space-y-0.5 mt-1">
+        <div className="space-y-1 mt-1">
           {standings.map((result, idx) => {
             const team = getTeamById(result.teamId);
             const hasScore = result.hasScore;
@@ -219,29 +264,76 @@ const MatchCard = ({
               <div
                 key={result.teamId}
                 className={cn(
-                  "grid grid-cols-[28px_8px_1fr_40px_40px_50px] gap-1 items-center px-2 py-1.5 rounded text-sm",
-                  result.placement === 1 ? "bg-yellow-500/20 border-l-2 border-yellow-500" :
-                  result.placement === 2 ? "bg-gray-400/10 border-l-2 border-gray-400" :
-                  result.placement === 3 ? "bg-amber-500/10 border-l-2 border-amber-600" :
-                  hasScore ? "bg-zinc-800/30" : "bg-zinc-800/20 opacity-50"
+                  "grid gap-1 items-center px-2 py-2 rounded text-sm transition-colors",
+                  match.type === 'cs-bracket'
+                    ? "grid-cols-[32px_8px_1fr_120px]"
+                    : "grid-cols-[32px_8px_1fr_40px_40px_50px]",
+                   result.placement === 1 ? "bg-yellow-300/10 border-l-2 border-yellow-300" :
+                   hasScore ? "bg-zinc-800/30 hover:bg-zinc-800/50" : "opacity-30"
                 )}
               >
-                <RankBadge rank={hasScore ? result.placement : 0} size="sm" />
+                <div className="flex justify-center">
+                    <span className={cn(
+                        "font-zentry text-lg",
+                        result.placement === 1 ? "text-yellow-300" : 
+                        result.placement === 2 ? "text-gray-300" :
+                        result.placement === 3 ? "text-yellow-600" : "text-gray-500"
+                    )}>
+                        #{hasScore ? result.placement : "-"}
+                    </span>
+                </div>
                 <div />
-                <span className="truncate font-display text-base tracking-widest">{team?.name || "Unknown"}</span>
-                <span className="text-center font-bold text-primary">{hasScore ? result.kills : "-"}</span>
-                <span className="text-center text-muted-foreground">{hasScore ? result.placementPts : "-"}</span>
                 <span className={cn(
-                  "text-center font-bold",
-                  result.placement === 1 ? "text-yellow-400" : "text-white"
+                    "truncate font-zentry text-lg uppercase tracking-wide",
+                    result.placement === 1 ? "text-yellow-300" : "text-gray-300"
                 )}>
-                  {hasScore ? result.totalPoints : "-"}
+                    {team?.name || "Unknown"}
                 </span>
+                {match.type !== 'cs-bracket' && (
+                  <>
+                    <span className="text-center font-black font-zentry text-red-500">{hasScore ? result.kills : "-"}</span>
+                    <span className="text-center font-circular-web text-blue-400">{hasScore ? result.placementPts : "-"}</span>
+                    <span className={cn(
+                      "text-center font-black font-zentry text-lg",
+                      result.placement === 1 ? "text-yellow-300" : "text-white"
+                    )}>
+                      {hasScore ? result.totalPoints : "-"}
+                    </span>
+                  </>
+                )}
+                {match.type === 'cs-bracket' && (
+                  <div className="flex justify-center">
+                    {result.placement === 1 ? (
+                      <span className="bg-green-500 text-black text-xs font-black px-3 py-1 rounded uppercase">
+                        ✓ WINNER
+                      </span>
+                    ) : result.placement === 2 ? (
+                      <span className="bg-red-500/20 text-red-400 text-xs font-medium px-3 py-1 rounded uppercase border border-red-500/30">
+                        ELIMINATED
+                      </span>
+                    ) : (
+                      <span className="text-gray-500">-</span>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
       </div>
+      
+      {/* Download Action at bottom of match card */}
+      {(isFinished || match.status === 'locked') && (
+        <div className="px-3 pb-3">
+          <button 
+            onClick={(e) => { e.stopPropagation(); onExportPDF(); }}
+            className="w-full flex items-center justify-center gap-2 py-2 bg-zinc-800/80 hover:bg-zinc-800 text-xs font-general uppercase tracking-widest text-gray-400 hover:text-white transition-all rounded-lg border border-zinc-700/50"
+          >
+            <FileDown className="w-4 h-4" />
+            <span>Download Match PDF</span>
+          </button>
+        </div>
+      )}
     </motion.div>
   );
 };
@@ -256,30 +348,23 @@ export default function LeaderboardPage() {
   // Auto-select active or most recent day on load
   useEffect(() => {
     if (days.length > 0) {
-      // 1. Try to find an active day
       const activeDay = days.find(d => d.status === "active");
       if (activeDay) {
         setSelectedDayId(activeDay.id);
         setMatchesDayId(activeDay.id);
         return;
       }
-
-      // 2. Try to find the most recent completed day
       const completedDays = days
         .filter(d => d.status === "completed" || d.status === "paused")
         .sort((a, b) => b.dayNumber - a.dayNumber);
-      
       if (completedDays.length > 0) {
         setSelectedDayId(completedDays[0].id);
         setMatchesDayId(completedDays[0].id);
         return;
       }
-
-      // 3. Fallback to the first upcoming day if any
       const upcomingDays = days
         .filter(d => d.status === "upcoming")
         .sort((a, b) => a.dayNumber - b.dayNumber);
-      
       if (upcomingDays.length > 0) {
         setSelectedDayId(upcomingDays[0].id);
         setMatchesDayId(upcomingDays[0].id);
@@ -289,154 +374,118 @@ export default function LeaderboardPage() {
 
   const selectedDay = days.find(d => d.id === selectedDayId);
   const qualifyCount = selectedDay?.qualifyCount || 0;
+  
+  // Only allow export/share if results are announced (Day is completed or locked)
+  const isResultsAnnounced = selectedDayId === "all"
+    ? days.length > 0 && days.every(d => d.status === "completed" || d.status === "locked")
+    : selectedDay?.status === "completed" || selectedDay?.status === "locked";
 
-  // Handle share - copy link to clipboard
+  const isMatchesResultsAnnounced = matchesDayId === "all"
+    ? days.length > 0 && days.every(d => d.status === "completed" || d.status === "locked")
+    : days.find(d => d.id === matchesDayId)?.status === "completed" || days.find(d => d.id === matchesDayId)?.status === "locked";
+
+  // Handle share
   const handleShare = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
-      toast({ 
-        title: "Link copied successfully!", 
-        duration: 2000 
-      });
+      toast({ title: "Link copied successfully!", duration: 2000 });
     } catch (err) {
-      toast({ 
-        title: "Failed to copy link", 
-        variant: "destructive",
-        duration: 2000 
-      });
+      toast({ title: "Failed to copy link", variant: "destructive", duration: 2000 });
     }
   };
 
-  // Handle download - screenshot of leaderboard table as image
-  const handleDownload = async () => {
-    if (!leaderboardRef.current) return;
-    
+  // Handle download PDF
+  const handleDownloadPDF = async () => {
     try {
-      const canvas = await html2canvas(leaderboardRef.current, {
-        backgroundColor: '#1a1a1a',
-        scale: 2,
-      });
-      
-      const link = document.createElement('a');
-      const dayLabel = selectedDayId === "all" ? "Overall" : `Day${selectedDay?.dayNumber}`;
-      link.download = `FFSAL_Leaderboard_${dayLabel}_${new Date().toISOString().split('T')[0]}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
-      
-      toast({ 
-        title: "Screenshot saved!", 
-        duration: 2000 
-      });
+      const dayName = selectedDayId === "all" ? "Overall Standings" : `Day ${selectedDay?.dayNumber} - ${selectedDay?.name}`;
+      await exportLeaderboardAsPDF(standings, dayName, "Arena Ace Tournament", getTeamById);
+      toast({ title: "PDF Report generated!", duration: 2000 });
     } catch (err) {
-      toast({ 
-        title: "Failed to capture screenshot", 
-        variant: "destructive",
-        duration: 2000 
-      });
+      console.error("PDF Export failed:", err);
+      toast({ title: "Failed to generate PDF", variant: "destructive", duration: 2000 });
     }
   };
 
-  // Calculate standings
+  // Handle Match PDF
+  const handleDownloadMatchPDF = async (match: any, matchStandings: any[]) => {
+    try {
+      const dayName = `Day ${selectedDay?.dayNumber || ""}`;
+      await exportMatchAsPDF(match, matchStandings, dayName, "Arena Ace Tournament", getTeamById);
+      toast({ title: "Match PDF generated!", duration: 2000 });
+    } catch (err) {
+      console.error("Match PDF Export failed:", err);
+      toast({ title: "Failed to generate Match PDF", variant: "destructive", duration: 2000 });
+    }
+  };
+
+  // Handle All Matches PDF
+  const handleDownloadAllMatchesPDF = async () => {
+    try {
+      const dayName = matchesDayId === "all" ? "All Tournament Matches" : `Day ${days.find(d => d.id === matchesDayId)?.dayNumber || ""} Matches`;
+      await exportAllMatchesAsPDF(allMatchStandings, dayName, "Arena Ace Tournament", getTeamById);
+      toast({ title: "All Matches Report generated!", duration: 2000 });
+    } catch (err) {
+      console.error("All Matches PDF Export failed:", err);
+      toast({ title: "Failed to generate report", variant: "destructive", duration: 2000 });
+    }
+  };
+
+  // Calculate standings logic (unchanged)
   const standings = useMemo(() => {
-    const teamStats: Record<string, { 
-      teamId: string;
-      totalKills: number;
-      totalPlacement: number;
-      totalPoints: number;
-      matchesPlayed: number;
-      booyahCount: number;
-      bestPlacement: number;
-    }> = {};
+    const teamStats: Record<string, any> = {};
+    const relevantMatches = selectedDayId === "all" ? matches : matches.filter(m => m.dayId === selectedDayId);
 
-    const relevantMatches = selectedDayId === "all"
-      ? matches
-      : matches.filter(m => m.dayId === selectedDayId);
+    // Get only teams that participated in these matches
+    const participatingTeamIds = new Set<string>();
+    relevantMatches.forEach(match => {
+      match.teamIds.forEach(teamId => participatingTeamIds.add(teamId));
+    });
 
-    // Initialize ALL teams with zero stats (not just those in matches)
-    teams.forEach(team => {
-      teamStats[team.id] = {
-        teamId: team.id,
-        totalKills: 0,
-        totalPlacement: 0,
-        totalPoints: 0,
-        matchesPlayed: 0,
-        booyahCount: 0,
-        bestPlacement: 12,
+    // Initialize ONLY participating teams
+    participatingTeamIds.forEach(teamId => {
+      teamStats[teamId] = {
+        teamId, totalKills: 0, totalPlacement: 0, totalPoints: 0, matchesPlayed: 0, booyahCount: 0, bestPlacement: 12,
       };
     });
 
-    // Update stats for teams that have played matches
     relevantMatches.forEach(match => {
       match.teamIds.forEach(teamId => {
         const score = scores.find(s => s.matchId === match.id && s.teamId === teamId);
         if (score && teamStats[teamId]) {
           const placementPts = PLACEMENT_POINTS[score.placement - 1] ?? 0;
           const totalPts = score.kills + placementPts;
-
           teamStats[teamId].totalKills += score.kills;
           teamStats[teamId].totalPlacement += placementPts;
           teamStats[teamId].totalPoints += totalPts;
           teamStats[teamId].matchesPlayed += 1;
           if (score.isBooyah || score.placement === 1) teamStats[teamId].booyahCount += 1;
-          if (score.placement < teamStats[teamId].bestPlacement) {
-            teamStats[teamId].bestPlacement = score.placement;
-          }
+          if (score.placement < teamStats[teamId].bestPlacement) teamStats[teamId].bestPlacement = score.placement;
         }
       });
     });
 
-    // Return ALL teams, sorted by points (teams with 0 points go to bottom)
-    return Object.values(teamStats)
-      .sort((a, b) => {
-        // First sort by total points
-        if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
-        // Then by kills
-        if (b.totalKills !== a.totalKills) return b.totalKills - a.totalKills;
-        // Then by placement points
-        if (b.totalPlacement !== a.totalPlacement) return b.totalPlacement - a.totalPlacement;
-        // Finally by matches played (more matches = higher rank for tiebreaker)
-        return b.matchesPlayed - a.matchesPlayed;
-      });
+    return Object.values(teamStats).sort((a, b) => {
+      if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
+      if (b.totalKills !== a.totalKills) return b.totalKills - a.totalKills;
+      if (b.totalPlacement !== a.totalPlacement) return b.totalPlacement - a.totalPlacement;
+      return b.matchesPlayed - a.matchesPlayed;
+    });
   }, [teams, matches, scores, selectedDayId]);
 
-  // Get matches for the matches tab
   const matchesForDisplay = useMemo(() => {
     if (matchesDayId === "all") return matches;
     return matches.filter(m => m.dayId === matchesDayId);
   }, [matches, matchesDayId]);
 
-  // Calculate match-specific standings
   const allMatchStandings = useMemo(() => {
     return matchesForDisplay.map(match => {
       const matchTeams = match.teamIds.map(teamId => {
         const score = scores.find(s => s.matchId === match.id && s.teamId === teamId);
-
-        if (!score) {
-          return {
-            teamId,
-            kills: 0,
-            placement: 0,
-            placementPts: 0,
-            totalPoints: 0,
-            isBooyah: false,
-            hasScore: false,
-          };
-        }
-
+        if (!score) return { teamId, kills: 0, placement: 0, placementPts: 0, totalPoints: 0, isBooyah: false, hasScore: false };
         const placementPts = PLACEMENT_POINTS[score.placement - 1] ?? 0;
         const totalPts = (score.kills * KILL_POINTS) + placementPts;
-
-        return {
-          teamId,
-          kills: score.kills,
-          placement: score.placement,
-          placementPts,
-          totalPoints: totalPts,
-          isBooyah: score.isBooyah || false,
-          hasScore: true,
-        };
+        return { teamId, kills: score.kills, placement: score.placement, placementPts, totalPoints: totalPts, isBooyah: score.isBooyah || false, hasScore: true };
       });
-
       const sortedTeams = matchTeams.sort((a, b) => {
         if (!a.hasScore && !b.hasScore) return 0;
         if (!a.hasScore) return 1;
@@ -446,284 +495,241 @@ export default function LeaderboardPage() {
         if (b.placement === 0) return -1;
         return a.placement - b.placement;
       });
-
       const matchDay = days.find(d => d.id === match.dayId);
-
       return { match, matchDay, standings: sortedTeams };
     });
   }, [matchesForDisplay, scores, days]);
 
-  // Split standings into two equal columns (first half left, second half right)
   const midpoint = Math.ceil(standings.length / 2);
   const leftColumn = standings.slice(0, midpoint);
   const rightColumn = standings.slice(midpoint);
 
   return (
-    <main className="flex-1 w-full min-h-screen relative bg-gradient-to-b from-zinc-900 via-background to-zinc-900">
-      <AnimatedBackground />
-      
-      <div className="container relative z-10 py-4 md:py-6">
-        {/* Compact Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between mb-4"
-        >
-          <Link href="/">
-            <Button variant="ghost" size="sm" className="gap-1 hover:bg-primary/10 hover:text-primary">
-              <ArrowLeft className="h-3 w-3" />
-              Back
-            </Button>
-          </Link>
-        </motion.div>
-
-        {/* Title Section */}
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="text-center mb-4"
-        >
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/20 border border-primary/30 mb-2">
-            <Flame className="w-3 h-3 text-primary" />
-            <span className="font-display text-xs tracking-widest text-primary">
-              BATTLE ROYALE MAIN EVENT
-            </span>
-          </div>
-
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-display font-bold tracking-wider">
-            <span className="bg-gradient-to-r from-primary via-orange-400 to-primary bg-clip-text text-transparent">
-              {selectedDayId === "all" ? "OVERALL STANDINGS" : `DAY ${selectedDay?.dayNumber} STANDINGS`}
-            </span>
-          </h1>
-        </motion.div>
-
+    <main className="flex-1 w-full min-h-screen bg-black text-blue-50">
+      <div className="container py-10 md:py-20 px-4 md:px-10">
+        
         {/* Tabs */}
         <Tabs defaultValue="standings" className="w-full">
-          <TabsList className="grid w-full max-w-md grid-cols-2 mx-auto bg-zinc-800/80 border border-zinc-700/50 p-1 h-auto mb-4">
+          <TabsList className="bg-transparent border-b border-white/10 w-full justify-center rounded-none p-0 h-auto mb-10 gap-8">
             <TabsTrigger 
               value="standings" 
-              className="text-sm py-2 data-[state=active]:bg-primary data-[state=active]:text-white font-display tracking-wider"
+              className="rounded-none border-b-2 border-transparent px-8 py-4 bg-transparent text-gray-400 font-general uppercase tracking-widest hover:text-white data-[state=active]:border-yellow-300 data-[state=active]:text-yellow-300 data-[state=active]:bg-transparent transition-all"
             >
-              <Trophy className="h-3.5 w-3.5 mr-1.5" />
               STANDINGS
             </TabsTrigger>
             <TabsTrigger 
               value="matches" 
-              className="text-sm py-2 data-[state=active]:bg-primary data-[state=active]:text-white font-display tracking-wider"
+              className="rounded-none border-b-2 border-transparent px-8 py-4 bg-transparent text-gray-400 font-general uppercase tracking-widest hover:text-white data-[state=active]:border-yellow-300 data-[state=active]:text-yellow-300 data-[state=active]:bg-transparent transition-all"
             >
-              <Target className="h-3.5 w-3.5 mr-1.5" />
               MATCHES
             </TabsTrigger>
           </TabsList>
 
           {/* STANDINGS TAB */}
-          <TabsContent value="standings" className="mt-0">
-            {/* Day Selector + Actions */}
-            <div className="flex items-center justify-between mb-4">
-              {/* Day Selector - Left */}
+          <TabsContent value="standings" className="mt-0 space-y-8">
+            {/* Controls */}
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
               <Select value={selectedDayId} onValueChange={setSelectedDayId}>
-                <SelectTrigger className="w-[200px] h-9 text-sm bg-zinc-800/80 border-zinc-700">
-                  <SelectValue placeholder="Filter by day" />
+                <SelectTrigger className="w-full md:w-[240px] h-12 bg-zinc-900 border-zinc-800 text-white font-general uppercase tracking-wide">
+                  <SelectValue placeholder="FILTER BY DAY" />
                 </SelectTrigger>
-                <SelectContent className="bg-zinc-800 border-zinc-700">
-                  <SelectItem value="all">All Days - Overall</SelectItem>
+                <SelectContent className="bg-zinc-900 border-zinc-800 text-white font-general">
+                  <SelectItem value="all">OVERALL STANDINGS</SelectItem>
                   {days.map((day) => (
                     <SelectItem key={day.id} value={day.id}>
-                      Day {day.dayNumber}: {day.name}
+                      DAY {day.dayNumber} - {day.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
 
-              {/* Share & Download - Right */}
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-9 gap-1.5 bg-zinc-800/80 border-zinc-700 hover:bg-zinc-700 hover:border-primary/50"
-                  onClick={handleShare}
-                >
-                  <Share2 className="h-4 w-4" />
-                  <span className="hidden sm:inline">Share</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-9 gap-1.5 bg-zinc-800/80 border-zinc-700 hover:bg-zinc-700 hover:border-primary/50"
-                  onClick={handleDownload}
-                >
-                  <Download className="h-4 w-4" />
-                  <span className="hidden sm:inline">Download</span>
-                </Button>
-              </div>
+              {isResultsAnnounced && (
+                <div className="flex items-center gap-3">
+                  <button
+                      onClick={handleShare}
+                      className="flex items-center gap-2 px-4 py-3 bg-zinc-900 border border-zinc-800 rounded text-gray-400 hover:text-white hover:border-gray-600 transition-all font-general text-xs uppercase"
+                  >
+                      <Share2 className="w-4 h-4" />
+                      <span>Share</span>
+                  </button>
+                  <button
+                      onClick={handleDownloadPDF}
+                      className="flex items-center gap-2 px-4 py-3 bg-zinc-900 border border-zinc-800 rounded text-gray-400 hover:text-white hover:border-gray-600 transition-all font-general text-xs uppercase"
+                  >
+                      <FileText className="w-4 h-4" />
+                      <span>Download PDF</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Loading */}
             {loading && (
               <div className="flex items-center justify-center py-20">
-                <Loader2 className="h-12 w-12 text-primary animate-spin" />
+                <Loader2 className="h-12 w-12 text-yellow-300 animate-spin" />
               </div>
             )}
 
             {/* Empty State */}
             {!loading && standings.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-20 text-center">
-                <Trophy className="h-16 w-16 text-muted-foreground/30 mb-4" />
-                <h3 className="text-2xl font-display text-muted-foreground">NO STANDINGS YET</h3>
-                <p className="text-muted-foreground/70">Leaderboard will appear once matches begin.</p>
+              <div className="flex flex-col items-center justify-center py-20 text-center border border-dashed border-zinc-800 rounded-xl">
+                <Trophy className="h-16 w-16 text-zinc-800 mb-6" />
+                <h3 className="text-3xl font-zentry text-zinc-600 uppercase">NO DATA AVAILABLE</h3>
+                <p className="font-circular-web text-zinc-500">Wait for the battle to begin.</p>
               </div>
             )}
 
-            {/* Two-Column Leaderboard */}
+            {/* Leaderboard Table */}
             {!loading && standings.length > 0 && (
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={selectedDayId}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                >
-                  {/* Leaderboard Content - wrapped for screenshot */}
-                  <div ref={leaderboardRef} className="bg-zinc-900 p-4 rounded-lg">
-                    {/* Column Headers */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-2">
-                      <div className="grid grid-cols-[32px_8px_1fr_36px_42px_42px_42px_52px] gap-0.5 px-2 py-2 bg-zinc-800/50 rounded text-xs font-display text-muted-foreground tracking-wider">
+               <AnimatePresence mode="wait">
+               <motion.div
+                 key={selectedDayId}
+                 initial={{ opacity: 0 }}
+                 animate={{ opacity: 1 }}
+                 exit={{ opacity: 0 }}
+               >
+                 {/* Leaderboard Content - wrapped for screenshot */}
+                 <div ref={leaderboardRef} className="bg-black p-4 md:p-8 rounded-xl border border-zinc-800">
+                    <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/10">
+                        <div>
+                            <h2 className="font-zentry text-3xl md:text-4xl text-white uppercase">
+                                {selectedDayId === "all" ? "Tournament Leaderboard" : `Day ${selectedDay?.dayNumber} Leaderboard`}
+                            </h2>
+                            <p className="font-circular-web text-gray-400 mt-1">
+                                {selectedDayId === "all" ? "Overall Points Table" : `Points Table for ${selectedDay?.name || "Matches"}`}
+                            </p>
+                        </div>
+                        <div className="flex flex-col md:flex-row md:items-center gap-2">
+                           <div className="bg-yellow-300 text-black font-black font-general px-4 py-2 rounded uppercase text-sm">
+                               {standings.length} SQUADS
+                           </div>
+                           {isResultsAnnounced && (
+                              <button 
+                                onClick={handleDownloadPDF}
+                                className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-zinc-700 rounded text-gray-400 hover:text-white hover:border-gray-300 transition-all font-general text-xs uppercase"
+                              >
+                                <FileDown className="w-4 h-4" />
+                                <span>Export PDF</span>
+                              </button>
+                           )}
+                        </div>
+                    </div>
+
+                   {/* Column Headers */}
+                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-4">
+                     <div className="grid grid-cols-[32px_12px_1fr_40px_48px_48px_48px_60px] gap-1 px-4 py-3 bg-zinc-900/50 rounded text-[10px] md:text-xs font-general uppercase text-gray-500 tracking-widest">
+                       <div className="text-center">#</div>
+                       <div />
+                       <div>TEAM</div>
+                       <div className="text-center">GPS</div>
+                       <div className="text-center">KILLS</div>
+                       <div className="text-center">PLACE</div>
+                       <div className="text-center">WIN</div>
+                       <div className="text-center">PTS</div>
+                     </div>
+                     <div className="hidden lg:grid grid-cols-[32px_12px_1fr_40px_48px_48px_48px_60px] gap-1 px-4 py-3 bg-zinc-900/50 rounded text-[10px] md:text-xs font-general uppercase text-gray-500 tracking-widest">
                         <div className="text-center">#</div>
                         <div />
                         <div>TEAM</div>
-                        <div className="text-center">GP</div>
-                        <div className="text-center">ELIM</div>
-                        <div className="text-center">PLC</div>
-                        <div className="text-center">BOO</div>
-                        <div className="text-center">TOTAL</div>
-                      </div>
-                      <div className="hidden lg:grid grid-cols-[32px_8px_1fr_36px_42px_42px_42px_52px] gap-0.5 px-2 py-2 bg-zinc-800/50 rounded text-xs font-display text-muted-foreground tracking-wider">
-                        <div className="text-center">#</div>
-                        <div />
-                        <div>TEAM</div>
-                        <div className="text-center">GP</div>
-                        <div className="text-center">ELIM</div>
-                        <div className="text-center">PLC</div>
-                        <div className="text-center">BOO</div>
-                        <div className="text-center">TOTAL</div>
-                      </div>
-                    </div>
+                        <div className="text-center">GPS</div>
+                        <div className="text-center">KILLS</div>
+                        <div className="text-center">PLACE</div>
+                        <div className="text-center">WIN</div>
+                        <div className="text-center">PTS</div>
+                     </div>
+                   </div>
 
-                    {/* Standings Grid - First half left, second half right */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      {/* Left Column: First half of teams */}
-                      <div className="space-y-1">
-                        {leftColumn.map((stat, idx) => {
-                          const rank = idx + 1;
-                          const team = getTeamById(stat.teamId);
-                          const isQualified = selectedDayId !== "all" && qualifyCount > 0 && rank <= qualifyCount;
-                          return (
-                            <CompactTeamRow
-                              key={stat.teamId}
-                              stat={stat}
-                            rank={rank}
-                            team={team}
-                            isQualified={isQualified}
-                            index={idx}
-                          />
-                        );
-                      })}
-                    </div>
+                   {/* Standings Grid */}
+                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-1">
+                     {/* Left Column */}
+                     <div className="space-y-1">
+                       {leftColumn.map((stat, idx) => {
+                         const rank = idx + 1;
+                         const team = getTeamById(stat.teamId);
+                         const isQualified = selectedDayId !== "all" && qualifyCount > 0 && rank <= qualifyCount;
+                         return (
+                           <CompactTeamRow
+                             key={stat.teamId}
+                             stat={stat}
+                             rank={rank}
+                             team={team}
+                             isQualified={isQualified}
+                             index={idx}
+                           />
+                         );
+                       })}
+                     </div>
 
-                    {/* Right Column: Second half of teams */}
-                    <div className="space-y-1">
-                      {rightColumn.map((stat, idx) => {
-                        const rank = midpoint + idx + 1;
-                        const team = getTeamById(stat.teamId);
-                        const isQualified = selectedDayId !== "all" && qualifyCount > 0 && rank <= qualifyCount;
-                        return (
-                          <CompactTeamRow
-                            key={stat.teamId}
-                            stat={stat}
-                            rank={rank}
-                            team={team}
-                            isQualified={isQualified}
-                            index={idx}
-                          />
-                        );
-                      })}
-                    </div>
-                  </div>
-                  </div>
-                  {/* End of leaderboard ref wrapper */}
-
-                  {/* Footer */}
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.5 }}
-                    className="mt-4 py-2 px-3 bg-zinc-800/50 rounded border border-zinc-700/50 flex flex-wrap items-center justify-center gap-4 text-xs text-muted-foreground"
-                  >
-                    <div className="flex items-center gap-1">
-                      <span className="text-muted-foreground">GP</span>
-                      <span>=Games</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Crosshair className="w-3 h-3 text-primary" />
-                      <span>ELIM=Kills (1pt/elim)</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Target className="w-3 h-3 text-accent" />
-                      <span>PLC=Placement Pts</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Crown className="w-3 h-3 text-yellow-500" />
-                      <span>BOO=Booyah Wins</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Trophy className="w-3 h-3 text-accent" />
-                      <span>{standings.length} teams</span>
-                    </div>
-                  </motion.div>
-                </motion.div>
-              </AnimatePresence>
+                     {/* Right Column */}
+                     <div className="space-y-1">
+                       {rightColumn.map((stat, idx) => {
+                         const rank = midpoint + idx + 1;
+                         const team = getTeamById(stat.teamId);
+                         const isQualified = selectedDayId !== "all" && qualifyCount > 0 && rank <= qualifyCount;
+                         return (
+                           <CompactTeamRow
+                             key={stat.teamId}
+                             stat={stat}
+                             rank={rank}
+                             team={team}
+                             isQualified={isQualified}
+                             index={idx}
+                           />
+                         );
+                       })}
+                     </div>
+                   </div>
+                 </div>
+                 {/* End of leaderboard ref wrapper */}
+               </motion.div>
+             </AnimatePresence>
             )}
           </TabsContent>
 
           {/* MATCHES TAB */}
-          <TabsContent value="matches" className="mt-0">
-            {/* Day Selector for Matches */}
-            <div className="flex justify-center mb-4">
+          <TabsContent value="matches" className="mt-0 space-y-8">
+            <div className="flex items-center justify-between">
               <Select value={matchesDayId} onValueChange={setMatchesDayId}>
-                <SelectTrigger className="w-[200px] h-9 text-sm bg-zinc-800/80 border-zinc-700">
-                  <SelectValue placeholder="Filter by day" />
+                <SelectTrigger className="w-[200px] h-12 bg-zinc-900 border-zinc-800 text-white font-general uppercase">
+                  <SelectValue placeholder="FILTER BY DAY" />
                 </SelectTrigger>
-                <SelectContent className="bg-zinc-800 border-zinc-700">
-                  <SelectItem value="all">All Days - All Matches</SelectItem>
+                <SelectContent className="bg-zinc-900 border-zinc-800 text-white font-general">
+                  <SelectItem value="all">ALL MATCHES</SelectItem>
                   {days.map((day) => (
                     <SelectItem key={day.id} value={day.id}>
-                      Day {day.dayNumber}: {day.name}
+                      DAY {day.dayNumber} - {day.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+
+              {isMatchesResultsAnnounced && allMatchStandings.length > 0 && (
+                <button
+                  onClick={handleDownloadAllMatchesPDF}
+                  className="flex items-center gap-2 px-4 py-3 bg-zinc-900 border border-zinc-800 rounded text-gray-400 hover:text-white hover:border-gray-600 transition-all font-general text-xs uppercase"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>Download All Results</span>
+                </button>
+              )}
             </div>
 
-            {/* Loading */}
             {loading && (
               <div className="flex items-center justify-center py-20">
-                <Loader2 className="h-12 w-12 text-primary animate-spin" />
+                <Loader2 className="h-12 w-12 text-yellow-300 animate-spin" />
               </div>
             )}
 
-            {/* Empty State */}
             {!loading && allMatchStandings.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-20 text-center">
-                <Target className="h-16 w-16 text-muted-foreground/30 mb-4" />
-                <h3 className="text-2xl font-display text-muted-foreground">NO MATCHES FOUND</h3>
-                <p className="text-muted-foreground/70">Matches will appear once created.</p>
+              <div className="flex flex-col items-center justify-center py-20 text-center border border-dashed border-zinc-800 rounded-xl">
+                <Target className="h-16 w-16 text-zinc-800 mb-6" />
+                <h3 className="text-3xl font-zentry text-zinc-600 uppercase">NO MATCHES FOUND</h3>
+                <p className="font-circular-web text-zinc-500">Scheduled matches will appear here.</p>
               </div>
             )}
 
-            {/* Match Cards Grid */}
             {!loading && allMatchStandings.length > 0 && (
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-6 md:grid-cols-2">
                 {allMatchStandings.map(({ match, matchDay, standings }, idx) => (
                   <MatchCard
                     key={match.id}
@@ -732,6 +738,13 @@ export default function LeaderboardPage() {
                     standings={standings}
                     getTeamById={getTeamById}
                     index={idx}
+                    onExportPDF={() => {
+                        if (matchDay?.status === 'completed') {
+                            handleDownloadMatchPDF(match, standings);
+                        } else {
+                            toast({ title: "Results not officially announced yet", variant: "default" });
+                        }
+                    }}
                   />
                 ))}
               </div>

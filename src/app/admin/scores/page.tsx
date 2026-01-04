@@ -37,13 +37,14 @@ const PLACEMENT_POINTS = [12, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0];
 const KILL_POINTS = 1;
 
 export default function ScoresPage() {
-  const { matches, days, scores, loading, error, setScore, getTeamById } = useTournament();
+  const { matches, days, scores, loading, error, setScore, getTeamById, bracketMatches, updateBracketMatch } = useTournament();
   const { userProfile } = useAuth();
   const { toast } = useToast();
 
   const [selectedDayId, setSelectedDayId] = useState<string>("");
   const [selectedMatchId, setSelectedMatchId] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
+  const [csWinner, setCSWinner] = useState<string>(""); // For CS bracket matches
 
   // Local score edits
   const [localScores, setLocalScores] = useState<Record<string, Record<string, { kills: number; placement: number }>>>({});
@@ -94,6 +95,24 @@ export default function ScoresPage() {
     return initial;
   }, [selectedMatchId, selectedMatch, scores, localScores]);
 
+  // Load existing CS winner when selecting a CS match
+  useEffect(() => {
+    if (selectedMatch?.type === 'cs-bracket' && bracketMatches && bracketMatches.length > 0) {
+      const bracketMatch = bracketMatches.find(
+        bm => selectedMatch.teamIds.includes(bm.team1Id || '') && 
+              selectedMatch.teamIds.includes(bm.team2Id || '')
+      );
+      
+      if (bracketMatch?.winnerId) {
+        setCSWinner(bracketMatch.winnerId);
+      } else {
+        setCSWinner('none');
+      }
+    } else if (selectedMatch?.type !== 'cs-bracket') {
+      setCSWinner('');
+    }
+  }, [selectedMatchId, selectedMatch, bracketMatches]);
+
   const isMatchLocked = selectedMatch?.locked ?? false;
   // Admins can edit as long as match is unlocked - day/match status doesn't matter
   const canEdit = !isMatchLocked;
@@ -124,43 +143,81 @@ export default function ScoresPage() {
   const handleSave = async () => {
     if (!selectedMatch || !userProfile) return;
 
-    const matchScores = localScores[selectedMatchId];
-    if (!matchScores || Object.keys(matchScores).length === 0) {
-      toast({
-        title: "No changes",
-        description: "You haven't made any edits to save.",
-      });
-      return;
-    }
-
     setIsSaving(true);
-    const savingToast = toast({
-      title: "Saving scores...",
-      description: `Updating ${Object.keys(matchScores).length} teams in real-time`,
-    });
-
+    
     try {
-      for (const teamId of Object.keys(matchScores)) {
-        const { kills, placement } = matchScores[teamId];
-        await setScore(selectedMatchId, teamId, kills, placement, userProfile.id, selectedDay?.type);
+      // Handle CS bracket matches
+      if (selectedMatch.type === 'cs-bracket') {
+        if (!csWinner || csWinner === 'none') {
+          toast({
+            title: "No winner selected",
+            description: "Please select a winning team before saving.",
+            variant: "destructive"
+          });
+          setIsSaving(false);
+          return;
+        }
+
+        // Find corresponding bracket match (if exists)
+        const bracketMatch = bracketMatches?.find(
+          bm => bm.dayId === selectedMatch.dayId &&
+                selectedMatch.teamIds.includes(bm.team1Id || '') && 
+                selectedMatch.teamIds.includes(bm.team2Id || '')
+        );
+
+        // If bracket match exists, update it
+        if (bracketMatch) {
+          await updateBracketMatch(bracketMatch.id, {
+            winnerId: csWinner,
+            status: 'finished'
+          });
+        }
+
+        // Always create scores for display (winner=1st, loser=2nd)
+        const loserId = selectedMatch.teamIds.find(id => id !== csWinner);
+        if (loserId) {
+          await setScore(selectedMatchId, csWinner, 0, 1, userProfile.id, 'cs-bracket');
+          await setScore(selectedMatchId, loserId, 0, 2, userProfile.id, 'cs-bracket');
+        }
+
+        toast({
+          title: "CS Winner Saved! ✓",
+          description: `${getTeamById(csWinner)?.name} won the match`,
+        });
+      } else {
+        // Handle BR matches (existing logic)
+        const matchScores = localScores[selectedMatchId];
+        if (!matchScores || Object.keys(matchScores).length === 0) {
+          toast({
+            title: "No changes",
+            description: "You haven't made any edits to save.",
+          });
+          setIsSaving(false);
+          return;
+        }
+
+        for (const teamId of Object.keys(matchScores)) {
+          const { kills, placement } = matchScores[teamId];
+          await setScore(selectedMatchId, teamId, kills, placement, userProfile.id, selectedMatch?.type);
+        }
+
+        toast({
+          title: "Scores Saved! ✓",
+          description: `Successfully updated ${Object.keys(matchScores).length} teams`,
+        });
+
+        // Clear local edits
+        setLocalScores(prev => {
+          const next = { ...prev };
+          delete next[selectedMatchId];
+          return next;
+        });
       }
-
-      toast({
-        title: "Scores Saved! ✓",
-        description: `Successfully updated ${Object.keys(matchScores).length} teams`,
-      });
-
-      // Clear local edits
-      setLocalScores(prev => {
-        const next = { ...prev };
-        delete next[selectedMatchId];
-        return next;
-      });
     } catch (err: any) {
-      console.error("Failed to save scores:", err);
+      console.error("Failed to save:", err);
       toast({
         title: "Error",
-        description: err.message || "Failed to save scores",
+        description: err.message || "Failed to save",
         variant: "destructive"
       });
     } finally {
@@ -261,7 +318,7 @@ export default function ScoresPage() {
               {filteredMatches.map((match) => (
                 <SelectItem key={match.id} value={match.id}>
                   <div className="flex items-center gap-2">
-                    Match {match.matchNumber}
+                    {match.name || `Match ${match.matchNumber}`}
                     {match.status === "live" && (
                       <Badge variant="destructive" className="ml-2">● Live</Badge>
                     )}
@@ -307,7 +364,7 @@ export default function ScoresPage() {
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
-                Match {selectedMatch?.matchNumber} - All Teams
+                {selectedMatch?.name || `Match ${selectedMatch?.matchNumber}`} - All Teams
                 {isMatchLocked && (
                   <Badge variant="destructive" className="ml-2">
                     <Lock className="h-3 w-3 mr-1" />
@@ -335,6 +392,88 @@ export default function ScoresPage() {
             </div>
           </CardHeader>
           <CardContent>
+            {/* CS Bracket Match - Winner Selection */}
+            {selectedMatch?.type === 'cs-bracket' ? (
+              <div className="space-y-6">
+                <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-6 border border-blue-200 dark:border-blue-900">
+                  <div className="flex items-start gap-4">
+                    <Trophy className="h-8 w-8 text-blue-600 flex-shrink-0 mt-1" />
+                    <div className="flex-1 space-y-4">
+                      <div>
+                        <h3 className="font-bold text-lg mb-2">CS Knockout Match</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Select the winning team from the dropdown below. This is a 1v1 elimination match.
+                        </p>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Winner</label>
+                        <Select 
+                          value={csWinner} 
+                          onValueChange={setCSWinner}
+                          disabled={!canEdit}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select winning team" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">No winner yet</SelectItem>
+                            {selectedMatch?.teamIds.map(teamId => {
+                              const team = getTeamById(teamId);
+                              return (
+                                <SelectItem key={teamId} value={teamId}>
+                                  {team?.name || "Unknown"} {team?.tag && `(${team.tag})`}
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {csWinner && csWinner !== "none" && (
+                        <div className="p-3 bg-green-50 dark:bg-green-950/20 rounded border border-green-200 dark:border-green-900">
+                          <p className="text-sm font-medium text-green-700 dark:text-green-400">
+                            ✓ Winner: {getTeamById(csWinner)?.name}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Teams Display */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {selectedMatch?.teamIds.map(teamId => {
+                    const team = getTeamById(teamId);
+                    const isWinner = csWinner === teamId;
+                    return (
+                      <div
+                        key={teamId}
+                        className={`p-4 rounded-lg border-2 transition-all ${
+                          isWinner 
+                            ? 'border-green-500 bg-green-50 dark:bg-green-950/20' 
+                            : 'border-zinc-300 dark:border-zinc-700'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-bold text-lg">{team?.name || "Unknown"}</h4>
+                            {team?.tag && <p className="text-sm text-muted-foreground">{team.tag}</p>}
+                          </div>
+                          {isWinner && (
+                            <Badge className="bg-green-500 text-white">
+                              ✓ WINNER
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              /* BR Match - Normal Score Table */
+              <>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -407,6 +546,8 @@ export default function ScoresPage() {
                 ))}
               </div>
             </div>
+            </>
+            )}
           </CardContent>
         </Card>
       )}

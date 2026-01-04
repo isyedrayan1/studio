@@ -51,15 +51,9 @@ import {
 import Link from "next/link";
 import { useTournament } from "@/contexts";
 import { useToast } from "@/hooks/use-toast";
-import type { Day, DayType, LeaderboardEntry } from "@/lib/types";
+import type { Day, LeaderboardEntry } from "@/lib/types";
 import { CelebrationDialog } from "@/components/admin/celebration-dialog";
 import { calculateLeaderboard } from "@/lib/utils-tournament";
-
-const DAY_TYPES: { value: DayType; label: string; description: string; defaultQualify: number }[] = [
-  { value: "br-shortlist", label: "BR Shortlisting", description: "17 teams → Top 12 qualify", defaultQualify: 12 },
-  { value: "br-championship", label: "BR Championship", description: "12 teams → Champion Rush → Top 8 qualify", defaultQualify: 8 },
-  { value: "cs-bracket", label: "CS Ranked", description: "8 teams → Knockout → 1 Champion", defaultQualify: 1 },
-];
 
 const STATUS_CONFIG = {
   upcoming: { label: "Upcoming", color: "bg-slate-500", icon: Clock },
@@ -68,11 +62,6 @@ const STATUS_CONFIG = {
   completed: { label: "Completed", color: "bg-blue-500", icon: CheckCircle },
   locked: { label: "Locked", color: "bg-red-500", icon: Lock },
 };
-
-// Get display name from day type
-function getDayTypeName(type: DayType): string {
-  return DAY_TYPES.find((t) => t.value === type)?.label || type;
-}
 
 export default function DaysPage() {
   const { days, teams, groups, matches, scores, loading, error, addDay, updateDay, deleteDay, getGroupsByDay, deleteMatch } = useTournament();
@@ -86,7 +75,7 @@ export default function DaysPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form states
-  const [formType, setFormType] = useState<DayType>("br-shortlist");
+  const [formName, setFormName] = useState<string>("Day 1");
   const [formQualifyCount, setFormQualifyCount] = useState<number>(12);
   const [formDayNumber, setFormDayNumber] = useState<number>(1);
 
@@ -106,23 +95,19 @@ export default function DaysPage() {
   };
 
   const resetForm = () => {
-    setFormType("br-shortlist");
+    const nextNum = getNextDayNumber();
+    setFormName(`Day ${nextNum}`);
+    setFormDayNumber(nextNum);
     setFormQualifyCount(12);
   };
 
   // Auto-update qualifyCount when type changes
-  const handleTypeChange = (newType: DayType) => {
-    setFormType(newType);
-    const typeConfig = DAY_TYPES.find(t => t.value === newType);
-    if (typeConfig) {
-      setFormQualifyCount(typeConfig.defaultQualify);
-    }
-  };
+
 
   const openEditDialog = (day: Day) => {
     setSelectedDay(day);
+    setFormName(day.name);
     setFormDayNumber(day.dayNumber);
-    setFormType(day.type);
     setFormQualifyCount(day.qualifyCount || 12);
     setIsEditOpen(true);
   };
@@ -135,15 +120,13 @@ export default function DaysPage() {
   const handleAdd = async () => {
     setIsSubmitting(true);
     try {
-      const nextDayNumber = getNextDayNumber();
       await addDay({
-        dayNumber: nextDayNumber,
-        name: getDayTypeName(formType),
-        type: formType,
+        dayNumber: formDayNumber,
+        name: formName || `Day ${formDayNumber}`,
         status: "upcoming",
         qualifyCount: formQualifyCount,
       });
-      toast({ title: "Success", description: `Day ${nextDayNumber} created` });
+      toast({ title: "Success", description: `${formName || 'Day'} created` });
       setIsAddOpen(false);
       resetForm();
     } catch (err: unknown) {
@@ -161,11 +144,10 @@ export default function DaysPage() {
     try {
       await updateDay(selectedDay.id, {
         dayNumber: formDayNumber,
-        name: getDayTypeName(formType),
-        type: formType,
+        name: formName,
         qualifyCount: formQualifyCount,
       });
-      toast({ title: "Success", description: `Day ${formDayNumber} updated` });
+      toast({ title: "Success", description: `${formName} updated` });
       setIsEditOpen(false);
       setSelectedDay(null);
       resetForm();
@@ -244,71 +226,32 @@ export default function DaysPage() {
         dayMatches.some(m => m.id === s.matchId)
       );
       const dayGroups = getGroupsByDay(dayToEnd.id);
+      
+      const qualifyCount = dayToEnd.qualifyCount || 12;
+      
       const leaderboard = calculateLeaderboard(
         teams,
         dayMatches,
         dayScores,
-        dayGroups
+        dayGroups,
+        [], // bracketMatches
+        dayToEnd.id, // dayId
+        undefined, // settings (use default)
+        qualifyCount
       );
 
-      const qualifyCount = dayToEnd.qualifyCount || 12;
       const qualified = leaderboard.slice(0, qualifyCount);
 
       // End the day
       await handleStatusChange(dayToEnd, "completed");
-
-      // If Day 1 (br-shortlist) is ending, auto-create Day 2 match
-      if (dayToEnd.type === "br-shortlist") {
-        const day2 = days.find(d => d.type === "br-championship");
-        if (day2) {
-          // Calculate top 12 teams from Day 1
-          const day1Matches = matches.filter(m => m.dayId === dayToEnd.id);
-          const teamScores: Record<string, { kills: number; points: number }> = {};
-
-          day1Matches.forEach(match => {
-            match.teamIds.forEach(teamId => {
-              const score = scores.find(s => s.matchId === match.id && s.teamId === teamId);
-              if (!teamScores[teamId]) teamScores[teamId] = { kills: 0, points: 0 };
-              if (score) {
-                teamScores[teamId].kills += score.kills;
-                teamScores[teamId].points += score.totalPoints ?? 0;
-              }
-            });
-          });
-
-          // Sort and get top 12
-          const qualifyCount = dayToEnd.qualifyCount || 12;
-          const topTeamIds = Object.entries(teamScores)
-            .sort((a, b) => b[1].points - a[1].points || b[1].kills - a[1].kills)
-            .slice(0, qualifyCount)
-            .map(([teamId]) => teamId);
-
-          // Create Day 2 match with top teams
-          if (topTeamIds.length > 0) {
-            const { addMatch } = await import("@/lib/firebase");
-            await addMatch({
-              dayId: day2.id,
-              matchNumber: 1,
-              groupIds: [],
-              teamIds: topTeamIds,
-              status: "upcoming",
-            });
-
-            toast({
-              title: "Day 2 Match Created",
-              description: `Top ${topTeamIds.length} teams automatically added to Day 2`,
-            });
-          }
-        }
-      }
-
+ 
       setIsEndDayOpen(false);
-
+ 
       // Show celebration dialog with qualified teams
       setCelebrationDay(dayToEnd);
       setQualifiedTeams(qualified);
       setIsCelebrationOpen(true);
-
+ 
       setDayToEnd(null);
     } catch (error) {
       console.error("Error ending day:", error);
@@ -320,25 +263,24 @@ export default function DaysPage() {
     }
   };
 
-  // Get team count for a day based on its type
+  // Get team count for a day
   const getTeamsInDay = (day: Day): { current: number; expected: number } => {
-    if (day.type === "br-shortlist") {
-      // Day 1: Count teams in groups
-      const dayGroups = getGroupsByDay(day.id);
-      const teamIds = new Set<string>();
-      dayGroups.forEach((g) => g.teamIds.forEach((t) => teamIds.add(t)));
-      return { current: teamIds.size, expected: teamIds.size || 18 };
-    } else if (day.type === "br-championship") {
-      // Day 2: Should be top 12 from Day 1
-      const day1 = days.find(d => d.type === "br-shortlist");
-      const qualifyCount = day1?.qualifyCount || 12;
-      return { current: qualifyCount, expected: qualifyCount };
-    } else {
-      // Day 3: Should be top 8 from Day 2
-      const day2 = days.find(d => d.type === "br-championship");
-      const qualifyCount = day2?.qualifyCount || 8;
-      return { current: qualifyCount, expected: qualifyCount };
-    }
+    // Count teams in groups
+    const dayGroups = getGroupsByDay(day.id);
+    const teamIdsInGroups = new Set<string>();
+    dayGroups.forEach((g) => g.teamIds.forEach((t) => teamIdsInGroups.add(t)));
+ 
+    // Count teams in direct matches
+    const dayMatches = matches.filter(m => m.dayId === day.id);
+    const teamIdsInMatches = new Set<string>();
+    dayMatches.forEach((m) => m.teamIds.forEach((t) => teamIdsInMatches.add(t)));
+ 
+    const combinedTeamIds = new Set([...Array.from(teamIdsInGroups), ...Array.from(teamIdsInMatches)]);
+    
+    return { 
+      current: combinedTeamIds.size, 
+      expected: combinedTeamIds.size || 0 
+    };
   };
 
   const formatDateTime = (isoString?: string) => {
@@ -428,7 +370,7 @@ export default function DaysPage() {
                       <div>
                         <h3 className="text-2xl font-bold tracking-wide">{day.name}</h3>
                         <p className="text-sm text-muted-foreground">
-                          {DAY_TYPES.find((t) => t.value === day.type)?.description}
+                          Tournament Day
                         </p>
                       </div>
                     </div>
@@ -446,10 +388,7 @@ export default function DaysPage() {
                     <div className="flex items-center gap-2">
                       <Users className="h-4 w-4 text-muted-foreground" />
                       <span>
-                        {day.type === "br-shortlist"
-                          ? `${teamsInDay.current}/${teamsInDay.expected} teams • ${groupsInDay} groups`
-                          : `${teamsInDay.expected} teams`
-                        }
+                        {teamsInDay.current}/{teamsInDay.expected} teams • {groupsInDay} groups
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -573,28 +512,32 @@ export default function DaysPage() {
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Day {getNextDayNumber()}</DialogTitle>
-            <DialogDescription>Select the type and qualification settings.</DialogDescription>
+            <DialogTitle>New Day</DialogTitle>
+            <DialogDescription>Setup your tournament day details.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Day Type</Label>
-              <Select value={formType} onValueChange={handleTypeChange}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {DAY_TYPES.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      <span className="font-semibold">{type.label}</span>
-                      <span className="text-muted-foreground ml-2">— {type.description}</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Day Name</Label>
+                <Input
+                  placeholder="e.g. Grand Finals"
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Day Number</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={formDayNumber}
+                  onChange={(e) => setFormDayNumber(parseInt(e.target.value) || 1)}
+                />
+              </div>
             </div>
+
             <div className="space-y-2">
-              <Label>Teams Qualify</Label>
+              <Label>Shortlist Numbers (Advance)</Label>
               <Input
                 type="number"
                 min={1}
@@ -607,7 +550,7 @@ export default function DaysPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
             <Button onClick={handleAdd} disabled={isSubmitting}>
-              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : `Create Day ${getNextDayNumber()}`}
+              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Day"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -617,11 +560,19 @@ export default function DaysPage() {
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Day {selectedDay?.dayNumber}</DialogTitle>
-            <DialogDescription>Update day settings.</DialogDescription>
+            <DialogTitle>Edit Day Settings</DialogTitle>
+            <DialogDescription>Update the name, number, and rules for this day.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Day Name</Label>
+                <Input
+                  placeholder="e.g. Grand Finals"
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
+                />
+              </div>
               <div className="space-y-2">
                 <Label>Day Number</Label>
                 <Input
@@ -631,30 +582,16 @@ export default function DaysPage() {
                   onChange={(e) => setFormDayNumber(parseInt(e.target.value) || 1)}
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Teams Qualify</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  value={formQualifyCount}
-                  onChange={(e) => setFormQualifyCount(parseInt(e.target.value) || 1)}
-                />
-              </div>
             </div>
+
             <div className="space-y-2">
-              <Label>Day Type</Label>
-              <Select value={formType} onValueChange={handleTypeChange}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {DAY_TYPES.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label} — {type.description}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Shortlist Numbers (Advance)</Label>
+              <Input
+                type="number"
+                min={1}
+                value={formQualifyCount}
+                onChange={(e) => setFormQualifyCount(parseInt(e.target.value) || 1)}
+              />
             </div>
           </div>
           <DialogFooter>

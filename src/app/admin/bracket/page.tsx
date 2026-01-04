@@ -23,6 +23,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import {
   Trophy,
@@ -74,19 +82,24 @@ export default function BracketPage() {
   const { toast } = useToast();
 
   const [isInitializing, setIsInitializing] = useState(false);
+  const [isInitDialogOpen, setIsInitDialogOpen] = useState(false);
+  const [selectedTeams, setSelectedTeams] = useState<string[]>(["", "", "", ""]);
   const [selectedMatch, setSelectedMatch] = useState<BracketMatch | null>(null);
   const [isWinnerDialogOpen, setIsWinnerDialogOpen] = useState(false);
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
 
-  // Find the CS Ranked day - either from URL param or first cs-bracket type
+  // Find the CS Ranked day - either from URL param or by finding day with cs-bracket matches
   const csDay = useMemo(() => {
     if (dayIdParam) {
-      const dayFromParam = days.find(d => d.id === dayIdParam && d.type === "cs-bracket");
+      const dayFromParam = days.find(d => d.id === dayIdParam);
       if (dayFromParam) return dayFromParam;
     }
-    // Fallback to first cs-bracket day
-    return days.find(d => d.type === "cs-bracket");
-  }, [days, dayIdParam]);
+    // Fallback to first day that has cs-bracket matches
+    const dayWithCSMatches = days.find(d => 
+      matches.some(m => m.dayId === d.id && m.type === "cs-bracket")
+    );
+    return dayWithCSMatches;
+  }, [days, dayIdParam, matches]);
   
   const csDayId = csDay?.id || "";
 
@@ -94,31 +107,7 @@ export default function BracketPage() {
   const dayBracket = bracketMatches.filter(m => m.dayId === csDayId);
   const hasBracket = dayBracket.length > 0;
 
-  // Calculate top 8 from previous day (br-championship)
-  const qualifiedTeamsFromPreviousDay = useMemo(() => {
-    // Find the BR Championship day (the day before this CS Ranked day)
-    const brChampDay = days.find(d => d.type === "br-championship");
-    if (!brChampDay) return [];
 
-    const brChampMatches = matches.filter(m => m.dayId === brChampDay.id);
-    const teamScores: Record<string, { kills: number; points: number }> = {};
-
-    brChampMatches.forEach(match => {
-      match.teamIds.forEach(teamId => {
-        const score = scores.find(s => s.matchId === match.id && s.teamId === teamId);
-        if (!teamScores[teamId]) teamScores[teamId] = { kills: 0, points: 0 };
-        if (score) {
-          teamScores[teamId].kills += score.kills;
-          teamScores[teamId].points += score.totalPoints || 0;
-        }
-      });
-    });
-
-    return Object.entries(teamScores)
-      .sort((a, b) => b[1].points - a[1].points || b[1].kills - a[1].kills)
-      .map(([teamId]) => teamId)
-      .slice(0, 8);
-  }, [days, matches, scores]);
 
   // Find champion (winner of finals)
   const champion = useMemo(() => {
@@ -131,14 +120,27 @@ export default function BracketPage() {
       toast({ title: "Error", description: "CS Ranked day not found", variant: "destructive" });
       return;
     }
-    if (qualifiedTeamsFromPreviousDay.length < 8) {
-      toast({ title: "Error", description: `Only ${qualifiedTeamsFromPreviousDay.length} qualified teams. Need 8.`, variant: "destructive" });
+    
+    // Validate team selection
+    const validTeams = selectedTeams.filter(t => t !== "");
+    if (validTeams.length !== 4) {
+      toast({ title: "Error", description: "Please select exactly 4 teams", variant: "destructive" });
       return;
     }
+    
+    // Check for duplicates
+    const uniqueTeams = new Set(validTeams);
+    if (uniqueTeams.size !== 4) {
+      toast({ title: "Error", description: "Please select 4 different teams", variant: "destructive" });
+      return;
+    }
+    
     setIsInitializing(true);
     try {
-      await initializeBracket(csDayId, qualifiedTeamsFromPreviousDay);
-      toast({ title: "Success", description: "Bracket initialized with top 8 teams" });
+      await initializeBracket(csDayId, validTeams);
+      toast({ title: "Success", description: "Bracket initialized with selected teams" });
+      setIsInitDialogOpen(false);
+      setSelectedTeams(["", "", "", ""]);
     } catch (err) {
       console.error("Failed to initialize bracket:", err);
       toast({ title: "Error", description: "Failed to initialize bracket", variant: "destructive" });
@@ -290,8 +292,8 @@ export default function BracketPage() {
           {!hasBracket && (
             <Button 
               className="gap-2" 
-              onClick={handleInitializeBracket}
-              disabled={isInitializing || !csDayId || qualifiedTeamsFromPreviousDay.length < 8}
+              onClick={() => setIsInitDialogOpen(true)}
+              disabled={isInitializing || !csDayId}
             >
               {isInitializing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Swords className="h-4 w-4" />}
               Initialize Bracket
@@ -349,23 +351,8 @@ export default function BracketPage() {
             <Swords className="h-16 w-16 text-muted-foreground/50 mb-4" />
             <p className="text-xl text-muted-foreground">Bracket not initialized</p>
             <p className="text-sm text-muted-foreground/70 mt-1">
-              {qualifiedTeamsFromPreviousDay.length < 8 
-                ? `Need 8 qualified teams from BR Championship (currently ${qualifiedTeamsFromPreviousDay.length})`
-                : "Click 'Initialize Bracket' to seed top 8 teams"
-              }
+              Click 'Initialize Bracket' to manually select 4 teams for the knockout stage
             </p>
-            {qualifiedTeamsFromPreviousDay.length >= 8 && (
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                {qualifiedTeamsFromPreviousDay.map((teamId, idx) => {
-                  const team = getTeamById(teamId);
-                  return (
-                    <Badge key={teamId} variant="secondary" className="text-sm">
-                      #{idx + 1} {team?.tag || team?.name || "?"}
-                    </Badge>
-                  );
-                })}
-              </div>
-            )}
           </CardContent>
         </Card>
       ) : (
@@ -470,6 +457,52 @@ export default function BracketPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Initialize Bracket Dialog - Manual Team Selection */}
+      <Dialog open={isInitDialogOpen} onOpenChange={setIsInitDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Initialize CS Bracket</DialogTitle>
+            <DialogDescription>
+              Select 4 teams for the knockout stage. Teams will be seeded as: 1 vs 4, 2 vs 3
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {[0, 1, 2, 3].map((idx) => (
+              <div key={idx} className="space-y-2">
+                <Label>Team {idx + 1} (Seed #{idx + 1})</Label>
+                <Select
+                  value={selectedTeams[idx]}
+                  onValueChange={(value) => {
+                    const newTeams = [...selectedTeams];
+                    newTeams[idx] = value;
+                    setSelectedTeams(newTeams);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select team" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teams.map((team) => (
+                      <SelectItem key={team.id} value={team.id}>
+                        {team.name} {team.tag && `(${team.tag})`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsInitDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleInitializeBracket} disabled={isInitializing}>
+              {isInitializing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Initialize"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -38,14 +38,19 @@ import { useTournament, useAuth } from "@/contexts";
 export function AdminSidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { days } = useTournament();
+  const { days, matches } = useTournament();
   const { signOut } = useAuth();
 
   // Sort days by number
   const sortedDays = [...days].sort((a, b) => a.dayNumber - b.dayNumber);
   
-  // Find CS Ranked days for showing bracket links
-  const csDays = sortedDays.filter(d => d.type === "cs-bracket");
+  // Helper to get match type for a day
+  const getDayMatchType = (dayId: string): string | null => {
+    const dayMatches = matches.filter(m => m.dayId === dayId);
+    if (dayMatches.length === 0) return null;
+    // Return the first match type found for this day
+    return dayMatches[0].type;
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -114,34 +119,37 @@ export function AdminSidebar() {
                   </SidebarMenuButton>
                   
                   {/* Dynamic Day Links */}
-                  {sortedDays.map(day => (
-                    <SidebarMenuButton
-                      key={day.id}
-                      onClick={() => {
-                        if (day.type === "cs-bracket") {
-                          router.push(`/admin/bracket?dayId=${day.id}`);
-                        } else if (day.type === "br-shortlist") {
-                          router.push(`/admin/groups?dayId=${day.id}`);
-                        } else {
-                          router.push(`/admin/matches?dayId=${day.id}`);
+                  {sortedDays.map(day => {
+                    const matchType = getDayMatchType(day.id);
+                    return (
+                      <SidebarMenuButton
+                        key={day.id}
+                        onClick={() => {
+                          if (matchType === "cs-bracket") {
+                            router.push(`/admin/bracket?dayId=${day.id}`);
+                          } else if (matchType === "br-shortlist") {
+                            router.push(`/admin/groups?dayId=${day.id}`);
+                          } else {
+                            router.push(`/admin/matches?dayId=${day.id}`);
+                          }
+                        }}
+                        isActive={
+                          (matchType === "cs-bracket" && pathname === "/admin/bracket") ||
+                          (matchType !== "cs-bracket" && pathname.includes("/admin/matches") && pathname.includes(day.id))
                         }
-                      }}
-                      isActive={
-                        (day.type === "cs-bracket" && pathname === "/admin/bracket") ||
-                        (day.type !== "cs-bracket" && pathname.includes("/admin/matches") && pathname.includes(day.id))
-                      }
-                      className="text-base tracking-wider h-9"
-                    >
-                      {day.type === "cs-bracket" ? (
-                        <GitBranch className="h-4 w-4" />
-                      ) : day.type === "br-shortlist" ? (
-                        <Layers className="h-4 w-4" />
-                      ) : (
-                        <Swords className="h-4 w-4" />
-                      )}
-                      <span>Day {day.dayNumber}: {day.name}</span>
-                    </SidebarMenuButton>
-                  ))}
+                        className="text-base tracking-wider h-9"
+                      >
+                        {matchType === "cs-bracket" ? (
+                          <GitBranch className="h-4 w-4" />
+                        ) : matchType === "br-shortlist" ? (
+                          <Layers className="h-4 w-4" />
+                        ) : (
+                          <Swords className="h-4 w-4" />
+                        )}
+                        <span>Day {day.dayNumber}: {day.name}</span>
+                      </SidebarMenuButton>
+                    );
+                  })}
                 </div>
               </CollapsibleContent>
             </Collapsible>

@@ -51,9 +51,8 @@ export default function DashboardPage() {
 
     const topTeam = teamStats[0];
 
-    // Calculate Booyahs and Champion Rush
+    // Calculate Booyahs
     const booyahCount = scores.filter(s => s.isBooyah).length;
-    const championRushCount = scores.filter(s => s.hasChampionRush).length;
 
     return {
       totalTeams: teams.length,
@@ -68,7 +67,6 @@ export default function DashboardPage() {
       totalGroups: groups.length,
       activeAnnouncements: announcements.filter(a => a.active).length,
       booyahCount,
-      championRushCount,
       topTeam,
       activeDay,
       completionRate: matches.length > 0 ? Math.round((completedMatches.length / matches.length) * 100) : 0,
@@ -304,16 +302,11 @@ export default function DashboardPage() {
             )}
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div className="text-center p-3 rounded-lg bg-muted/50">
                 <Trophy className="h-5 w-5 mx-auto mb-1 text-yellow-500" />
                 <p className="text-2xl font-bold">{stats.booyahCount}</p>
                 <p className="text-xs text-muted-foreground">Booyahs</p>
-              </div>
-              <div className="text-center p-3 rounded-lg bg-muted/50">
-                <Flame className="h-5 w-5 mx-auto mb-1 text-orange-500" />
-                <p className="text-2xl font-bold">{stats.championRushCount}</p>
-                <p className="text-xs text-muted-foreground">Champion Rush</p>
               </div>
               <div className="text-center p-3 rounded-lg bg-muted/50">
                 <Target className="h-5 w-5 mx-auto mb-1 text-blue-500" />

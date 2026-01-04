@@ -50,7 +50,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { Group } from "@/lib/types";
 
 export default function GroupsPage() {
-  const { groups, days, teams, loading, error, addGroup, updateGroup, deleteGroup, getTeamById } = useTournament();
+  const { groups, days, teams, matches, loading, error, addGroup, updateGroup, deleteGroup, getTeamById } = useTournament();
   const { toast } = useToast();
 
   // Filter state
@@ -68,8 +68,10 @@ export default function GroupsPage() {
   const [formDayId, setFormDayId] = useState("");
   const [formTeamIds, setFormTeamIds] = useState<string[]>([]);
 
-  // Only Day 1 (br-shortlist) type days can have groups
-  const groupableDays = days.filter(d => d.type === "br-shortlist");
+  // Only days with br-shortlist matches can have groups
+  const groupableDays = days.filter(d => 
+    matches.some(m => m.dayId === d.id && m.type === "br-shortlist")
+  );
   const hasGroupableDays = groupableDays.length > 0;
 
   const filteredGroups = selectedDayId === "all" 

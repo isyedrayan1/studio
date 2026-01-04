@@ -423,100 +423,66 @@ export function TimelineCard({
   return (
     <motion.div
       className={cn(
-        "relative rounded-xl border bg-card/50 backdrop-blur-sm p-6 transition-all duration-300",
-        status === "active" && "border-primary ring-2 ring-primary/20 shadow-[0_0_30px_rgba(255,70,70,0.2)]",
-        status === "completed" && "border-emerald-500/50 bg-emerald-500/5",
-        status === "upcoming" && "border-border/50 opacity-80",
-        hasChanged && "ring-2 ring-emerald-500/50"
+        "relative border-l-4 pl-8 py-6 transition-all duration-300",
+        status === "active" && "border-l-primary",
+        status === "completed" && "border-l-green-500",
+        status === "upcoming" && "border-l-gray-600"
       )}
       initial={{ opacity: 0, x: -30 }}
       whileInView={{ opacity: 1, x: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.5, delay }}
-      whileHover={{ x: 10 }}
-      animate={hasChanged ? { scale: [1, 1.02, 1] } : {}}
     >
-      {/* Status indicator */}
-      {status === "active" && (
-        <motion.div
-          className="absolute top-0 left-0 right-0 h-1 bg-primary rounded-t-xl"
-          animate={{ opacity: [1, 0.5, 1] }}
-          transition={{ duration: 1.5, repeat: Infinity }}
-        />
-      )}
+      {/* Day Number Badge */}
+      <div className={cn(
+        "absolute -left-6 top-6 w-12 h-12 rounded-full flex items-center justify-center font-zentry text-xl font-black",
+        status === "active" && "bg-primary text-black",
+        status === "completed" && "bg-green-500 text-black",
+        status === "upcoming" && "bg-gray-600 text-white"
+      )}>
+        {dayNumber}
+      </div>
 
-      {/* Live update notification */}
-      {hasChanged && (
-        <motion.div
-          className="absolute -top-2 -right-2 px-2 py-1 rounded-full bg-emerald-500 text-white text-xs font-bold"
-          initial={{ opacity: 0, scale: 0 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0 }}
-        >
-          +1 Match
-        </motion.div>
-      )}
-
-      <div className="flex items-start gap-4">
-        {/* Day number */}
-        <motion.div 
-          className={cn(
-            "flex-shrink-0 w-16 h-16 rounded-xl flex items-center justify-center text-3xl font-bold",
+      {/* Content */}
+      <div className="space-y-3">
+        {/* Title and Status */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <h3 className="text-2xl md:text-3xl font-zentry font-black text-white">{title}</h3>
+          <span className={cn(
+            "px-3 py-1 rounded-full text-xs font-general uppercase tracking-wider",
             status === "active" && "bg-primary/20 text-primary",
-            status === "completed" && "bg-emerald-500/20 text-emerald-500",
-            status === "upcoming" && "bg-muted text-muted-foreground"
+            status === "completed" && "bg-green-500/20 text-green-400",
+            status === "upcoming" && "bg-gray-600/20 text-gray-400"
+          )}>
+            {status === "active" ? "🔥 LIVE" : status}
+          </span>
+        </div>
+
+        {/* Description */}
+        <p className="text-gray-400 font-circular-web">{description}</p>
+
+        {/* Progress Bar */}
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm font-general">
+            <span className="text-gray-500 uppercase">Progress</span>
+            <span className="text-white font-mono">{completedMatches}/{matchCount} matches</span>
+          </div>
+          <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+            <motion.div
+              className={cn(
+                "h-full",
+                status === "active" && "bg-primary",
+                status === "completed" && "bg-green-500",
+                status === "upcoming" && "bg-gray-600"
+              )}
+              initial={{ width: 0 }}
+              animate={{ width: `${progress}%` }}
+              transition={{ duration: 0.8, ease: "easeOut" }}
+            />
+          </div>
+          {qualifyCount && (
+            <p className="text-sm text-accent font-general">Top {qualifyCount} teams qualify</p>
           )}
-          animate={hasChanged ? { rotate: [0, -5, 5, 0] } : {}}
-        >
-          {dayNumber.toString().padStart(2, "0")}
-        </motion.div>
-
-        {/* Content */}
-        <div className="flex-1">
-          <div className="flex items-center gap-3 mb-2">
-            <h3 className="text-2xl font-bold">{title}</h3>
-            <span className={cn(
-              "px-3 py-1 rounded-full text-xs font-semibold uppercase",
-              status === "active" && "bg-primary/20 text-primary animate-pulse",
-              status === "completed" && "bg-emerald-500/20 text-emerald-500",
-              status === "upcoming" && "bg-muted text-muted-foreground"
-            )}>
-              {status === "active" ? "🔥 LIVE" : status}
-            </span>
-          </div>
-          <p className="text-muted-foreground mb-4">{description}</p>
-
-          {/* Progress */}
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>Progress</span>
-              <motion.span 
-                className="font-mono"
-                key={completedMatches}
-                initial={hasChanged ? { color: "#10B981" } : false}
-                animate={{ color: "inherit" }}
-                transition={{ duration: 1 }}
-              >
-                {completedMatches}/{matchCount} matches
-              </motion.span>
-            </div>
-            <div className="h-2 bg-muted rounded-full overflow-hidden">
-              <motion.div
-                className={cn(
-                  "h-full",
-                  status === "active" && "bg-primary",
-                  status === "completed" && "bg-emerald-500",
-                  status === "upcoming" && "bg-muted-foreground"
-                )}
-                initial={{ width: 0 }}
-                animate={{ width: `${progress}%` }}
-                transition={{ duration: 0.8, ease: "easeOut" }}
-              />
-            </div>
-            {qualifyCount && (
-              <p className="text-sm text-accent">Top {qualifyCount} teams qualify</p>
-            )}
-          </div>
         </div>
       </div>
     </motion.div>

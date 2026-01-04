@@ -30,6 +30,11 @@ export default {
         sans: ['var(--font-rajdhani)', 'system-ui', 'sans-serif'],
         display: ['var(--font-bebas-neue)', 'sans-serif'],
         heading: ['var(--font-bebas-neue)', 'sans-serif'],
+        zentry: ['zentry', 'sans-serif'],
+        general: ['general', 'sans-serif'],
+        'circular-web': ['circular-web', 'sans-serif'],
+        'robert-medium': ['robert-medium', 'sans-serif'],
+        'robert-regular': ['robert-regular', 'sans-serif'],
       },
       colors: {
         background: 'hsl(var(--background))',
@@ -81,6 +86,20 @@ export default {
           'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
           border: 'hsl(var(--sidebar-border))',
           ring: 'hsl(var(--sidebar-ring))',
+        },
+        blue: {
+          50: '#DFDFF0',
+          75: '#DFDFF2',
+          100: '#F0F2FA',
+          200: '#010101',
+          300: '#4FB7DD',
+        },
+        violet: {
+          300: '#5724FF',
+        },
+        yellow: {
+          100: '#8E983F',
+          300: '#FF6B4A',
         },
       },
       borderRadius: {

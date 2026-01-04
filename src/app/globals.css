@@ -342,3 +342,166 @@
 .text-gradient-gold {
   @apply bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-500 bg-clip-text text-transparent;
 }
+
+@layer base {
+  @font-face {
+    font-family: "circular-web";
+    src: url("/fonts/circularweb-book.woff2") format("woff2");
+  }
+
+  @font-face {
+    font-family: "general";
+    src: url("/fonts/general.woff2") format("woff2");
+  }
+
+  @font-face {
+    font-family: "robert-medium";
+    src: url("/fonts/robert-medium.woff2") format("woff2");
+  }
+
+  @font-face {
+    font-family: "robert-regular";
+    src: url("/fonts/robert-regular.woff2") format("woff2");
+  }
+
+  @font-face {
+    font-family: "zentry";
+    src: url("/fonts/zentry-regular.woff2") format("woff2");
+  }  
+}
+
+.border-hsla {
+  @apply border border-white/20;
+}
+
+.nav-hover-btn {
+  @apply relative ms-10 font-general text-xs uppercase text-blue-50 cursor-pointer;
+}
+
+.nav-hover-btn::after {
+  content: "";
+  @apply absolute -bottom-0.5 left-0 h-[2px] w-full origin-bottom-right scale-x-0 bg-neutral-800 transition-transform duration-300;
+  transition-timing-function: cubic-bezier(0.65, 0.05, 0.36, 1);
+}
+
+.nav-hover-btn:hover::after {
+  @apply origin-bottom-left scale-x-100;
+}
+
+.dark .nav-hover-btn::after {
+  @apply bg-white;
+}
+
+.floating-nav {
+  @apply bg-black rounded-lg border;
+}
+
+.absolute-center {
+  @apply absolute top-1/2 left-1/2 translate-x-[-50%] translate-y-[-50%];
+}
+
+.flex-center {
+  @apply flex justify-center items-center;
+}
+
+.mask-clip-path {
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+}
+
+.special-font b {
+  font-family: "zentry";
+  font-feature-settings: "ss01" on;
+}
+
+.hero-heading {
+  @apply uppercase font-zentry font-black text-6xl sm:right-10 sm:text-7xl md:text-9xl lg:text-[12rem];
+}
+
+.about-subtext {
+  @apply absolute bottom-[-80dvh] left-1/2 w-full max-w-96 -translate-x-1/2 text-center font-circular-web text-lg md:max-w-[34rem];
+}
+
+.about-image {
+  @apply absolute left-1/2 top-0 z-20 h-[60vh] w-96 origin-center -translate-x-1/2 overflow-hidden rounded-3xl md:w-[30vw];
+}
+
+.animated-title {
+  @apply flex flex-col gap-2 text-7xl uppercase leading-[.8] text-white sm:px-32 md:text-[6rem] tracking-tighter;
+}
+
+.animated-word {
+  @apply font-zentry font-black opacity-0;
+  transform: translate3d(10px, 51px, -60px) rotateY(60deg) rotateX(-40deg);
+  transform-origin: 50% 50% -150px !important;
+  will-change: opacity, transform;
+}
+
+.animated-word b{
+  font-family: "zentry";
+  font-feature-settings: "ss01" on;
+}
+
+.bento-tilt_1 {
+  @apply relative border border-white/20 col-span-2 overflow-hidden rounded-md transition-transform duration-300 ease-out;
+}
+
+.bento-tilt_2 {
+  @apply relative col-span-1 row-span-1 overflow-hidden rounded-md transition-transform duration-300 ease-out;
+}
+
+.bento-title {
+  @apply uppercase md:text-6xl text-4xl font-black font-zentry;
+}
+
+.story-img-container {
+  @apply relative md:h-dvh h-[90vh] w-full;
+  filter: url("#flt_tag");
+}
+
+.story-img-mask {
+  @apply absolute left-0 top-0 size-full overflow-hidden md:left-[15%] md:top-[5%] md:w-[70%] md:h-[80%];
+  clip-path: polygon(0 8%, 100% 0, 100% 92%, 0 100%);
+  border-radius: 24px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.story-img-content {
+  @apply absolute w-full md:h-dvh h-[50dvh] opacity-100 left-5 top-10 md:left-0 md:top-0;
+  transform: translate3d(0, 0, 0) rotateX(0) rotateY(0) rotateZ(0) scale(1);
+}
+
+.indicator-line {
+  @apply h-3 w-[2px] rounded-full bg-white transition-all duration-200 ease-in-out;
+}
+
+.indicator-line.active {
+  animation: indicator-line 0.5s ease infinite;
+  animation-delay: calc(var(--animation-order) * 0.1s);
+}
+
+.contact-clip-path-1 {
+  clip-path: polygon(0 10%, 80% 0, 100% 20%, 100% 100%, 20% 100%, 0 80%);
+}
+
+.contact-clip-path-2 {
+  clip-path: polygon(25% 0, 100% 0, 100% 80%, 75% 100%, 0 100%, 0 20%);
+}
+
+.sword-man-clip-path {
+  clip-path: polygon(16% 0, 89% 0, 100% 10%, 100% 90%, 88% 100%, 0 100%, 0 89%, 0 10%);
+}
+
+@keyframes indicator-line {
+  0% {
+    height: 4px;
+    transform: translateY(-0px);
+  }
+  50% {
+    height: 16px;
+    transform: translateY(-4px);
+  }
+  100% {
+    height: 4px;
+    transform: translateY(-0px);
+  }
+}

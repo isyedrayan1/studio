@@ -20,10 +20,10 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Crown, Loader2, Trophy, Medal, CheckCircle, Target, Lock, Play, Clock, Share2, Download } from "lucide-react";
+import { Crown, Loader2, Trophy, Medal, CheckCircle, Target, Lock, Play, Clock, Share2, Download, FileText, FileDown } from "lucide-react";
 import { useTournament } from "@/contexts";
 import { useToast } from "@/hooks/use-toast";
-import { exportLeaderboardAsImage, shareLeaderboardImage } from "@/lib/export-leaderboard";
+import { exportLeaderboardAsImage, shareLeaderboardImage, exportLeaderboardAsPDF, exportMatchAsPDF, exportAllMatchesAsPDF } from "@/lib/export-leaderboard";
 
 const PLACEMENT_POINTS = [12, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0];
 const KILL_POINTS = 1;
@@ -38,6 +38,11 @@ export default function AdminLeaderboardPage() {
   // Get the selected day's qualify count
   const selectedDay = days.find(d => d.id === selectedDayId);
   const qualifyCount = selectedDay?.qualifyCount || 0;
+
+  // Only allow export if results are announced (Day is completed or locked)
+  const isResultsAnnounced = selectedDayId === "all"
+    ? days.length > 0 && days.every(d => d.status === "completed" || d.status === "locked")
+    : selectedDay?.status === "completed" || selectedDay?.status === "locked";
 
   const handleExportImage = async () => {
     try {
@@ -59,6 +64,58 @@ export default function AdminLeaderboardPage() {
         description: "Failed to export leaderboard",
         variant: "destructive",
       });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExportPDF = async () => {
+    try {
+      setIsExporting(true);
+      const dayName = selectedDayId === "all" ? "Overall Standings" : `Day ${selectedDay?.dayNumber} - ${selectedDay?.name}`;
+      await exportLeaderboardAsPDF(
+        standings,
+        dayName,
+        "Arena Ace Tournament",
+        getTeamById
+      );
+      toast({
+        title: "Success",
+        description: "Leaderboard PDF generated!",
+      });
+    } catch (error) {
+      console.error("Export failed:", error);
+      toast({
+        title: "Error",
+        description: "Failed to export leaderboard as PDF",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleDownloadMatchPDF = async (match: any, matchStandings: any[]) => {
+    try {
+      setIsExporting(true);
+      const dayName = `Day ${selectedDay?.dayNumber || ""}`;
+      await exportMatchAsPDF(match, matchStandings, dayName, "Arena Ace Tournament", getTeamById);
+      toast({ title: "Match PDF generated!" });
+    } catch (err) {
+      toast({ title: "Failed to generate Match PDF", variant: "destructive" });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleDownloadAllMatchesPDF = async () => {
+    try {
+      setIsExporting(true);
+      const dayName = matchesDayId === "all" ? "All Tournament Matches" : `Day ${days.find(d => d.id === matchesDayId)?.dayNumber || ""} Matches`;
+      await exportAllMatchesAsPDF(allMatchStandings, dayName, "Arena Ace Tournament", getTeamById);
+      toast({ title: "All Matches Report generated!" });
+    } catch (err) {
+      toast({ title: "Failed to generate report", variant: "destructive" });
     } finally {
       setIsExporting(false);
     }
@@ -93,7 +150,6 @@ export default function AdminLeaderboardPage() {
       totalPoints: number;
       matchesPlayed: number;
       booyahCount: number;
-      championRushCount: number;
     }> = {};
 
     // Filter matches by selected day
@@ -101,16 +157,21 @@ export default function AdminLeaderboardPage() {
       ? matches 
       : matches.filter(m => m.dayId === selectedDayId);
 
-    // Initialize ALL teams with zero stats (show all teams even without scores)
-    teams.forEach(team => {
-      teamStats[team.id] = {
-        teamId: team.id,
+    // Get only teams that participated in these matches
+    const participatingTeamIds = new Set<string>();
+    relevantMatches.forEach(match => {
+      match.teamIds.forEach(teamId => participatingTeamIds.add(teamId));
+    });
+
+    // Initialize ONLY participating teams
+    participatingTeamIds.forEach(teamId => {
+      teamStats[teamId] = {
+        teamId,
         totalKills: 0,
         totalPlacement: 0,
         totalPoints: 0,
         matchesPlayed: 0,
         booyahCount: 0,
-        championRushCount: 0,
       };
     });
 
@@ -127,9 +188,8 @@ export default function AdminLeaderboardPage() {
           teamStats[teamId].totalPoints += totalPts;
           teamStats[teamId].matchesPlayed += 1;
           
-          // Track Booyahs and Champion Rush badges
+          // Track Booyahs
           if (score.isBooyah || score.placement === 1) teamStats[teamId].booyahCount += 1;
-          if (score.hasChampionRush) teamStats[teamId].championRushCount += 1;
         }
       });
     });
@@ -145,8 +205,7 @@ export default function AdminLeaderboardPage() {
     return standingsArray;
   }, [teams, matches, scores, selectedDayId]);
 
-  // Determine if we should show Champion Rush column (only for Day 2 or all days)
-  const showChampionRush = selectedDayId === "all" || selectedDay?.type === 'br-championship';
+
 
   // Get matches for the matches tab
   const matchesForDisplay = useMemo(() => {
@@ -169,8 +228,6 @@ export default function AdminLeaderboardPage() {
             placement: 0,
             placementPts: 0,
             totalPoints: 0,
-            isBooyah: false,
-            hasChampionRush: false,
             hasScore: false,
           };
         }
@@ -185,7 +242,6 @@ export default function AdminLeaderboardPage() {
           placementPts,
           totalPoints: totalPts,
           isBooyah: score.isBooyah || false,
-          hasChampionRush: score.hasChampionRush || false,
           hasScore: true,
         };
       });
@@ -207,7 +263,6 @@ export default function AdminLeaderboardPage() {
         match,
         matchDay,
         standings: sortedTeams,
-        showChampionRush: matchDay?.type === 'br-championship',
       };
     });
   }, [matchesForDisplay, scores, days]);
@@ -225,31 +280,54 @@ export default function AdminLeaderboardPage() {
 
         {/* Export/Share Buttons */}
         <div className="flex gap-2">
-          <Button 
-            onClick={handleExportImage} 
-            disabled={isExporting}
-            variant="outline"
-            size="lg"
-          >
-            {isExporting ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Download className="h-4 w-4 mr-2" />
-            )}
-            Download Image
-          </Button>
-          <Button 
-            onClick={handleShareImage} 
-            disabled={isExporting}
-            size="lg"
-          >
-            {isExporting ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Share2 className="h-4 w-4 mr-2" />
-            )}
-            Share
-          </Button>
+          {!isResultsAnnounced ? (
+            <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-muted/30 border border-dashed border-border rounded-md text-muted-foreground text-sm font-medium">
+              <Clock className="h-4 w-4" />
+              <span>Exports available after results announced</span>
+            </div>
+          ) : (
+            <>
+              <Button 
+                onClick={handleExportPDF} 
+                disabled={isExporting}
+                variant="outline"
+                size="lg"
+                className="border-primary/50 hover:bg-primary/5"
+              >
+                {isExporting ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <FileText className="h-4 w-4 mr-2 text-primary" />
+                )}
+                Download PDF
+              </Button>
+              <Button 
+                onClick={handleExportImage} 
+                disabled={isExporting}
+                variant="outline"
+                size="lg"
+              >
+                {isExporting ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4 mr-2" />
+                )}
+                Download Image
+              </Button>
+              <Button 
+                onClick={handleShareImage} 
+                disabled={isExporting}
+                size="lg"
+              >
+                {isExporting ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Share2 className="h-4 w-4 mr-2" />
+                )}
+                Share
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -326,11 +404,23 @@ export default function AdminLeaderboardPage() {
           ) : (
             <Card id="leaderboard-master-table">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Trophy className="h-6 w-6 text-primary" />
-                  {selectedDayId === "all" ? "Overall Standings" : `Day ${selectedDay?.dayNumber} Standings`}
-                  <Badge variant="secondary" className="ml-auto">{standings.length} teams</Badge>
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <Trophy className="h-6 w-6 text-primary" />
+                    {selectedDayId === "all" ? "Overall Standings" : `Day ${selectedDay?.dayNumber} Standings`}
+                    <Badge variant="secondary" className="ml-auto">{standings.length} teams</Badge>
+                  </CardTitle>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleExportPDF}
+                    disabled={isExporting}
+                    className="hidden sm:flex"
+                  >
+                    <FileDown className="h-4 w-4 mr-2" />
+                    Download PDF
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -341,7 +431,7 @@ export default function AdminLeaderboardPage() {
                       <TableHead className="text-center">Matches</TableHead>
                       <TableHead className="text-center">Kills</TableHead>
                       <TableHead className="text-center">Booyahs</TableHead>
-                      {showChampionRush && <TableHead className="text-center">🔥 CR</TableHead>}
+
                       <TableHead className="text-center">Place Pts</TableHead>
                       <TableHead className="text-center">Total</TableHead>
                       {selectedDay && qualifyCount > 0 && <TableHead className="text-center w-[80px]">Status</TableHead>}
@@ -383,13 +473,7 @@ export default function AdminLeaderboardPage() {
                               {standing.booyahCount > 0 ? `🏆 ${standing.booyahCount}` : "0"}
                             </Badge>
                           </TableCell>
-                          {showChampionRush && (
-                            <TableCell className="text-center">
-                              <Badge variant={standing.championRushCount > 0 ? "destructive" : "secondary"} className="text-sm">
-                                {standing.championRushCount}
-                              </Badge>
-                            </TableCell>
-                          )}
+
                           <TableCell className="text-center font-bold">{standing.totalPlacement}</TableCell>
                           <TableCell className="text-center">
                             <Badge variant="default" className="text-base px-3 py-1">
@@ -436,30 +520,44 @@ export default function AdminLeaderboardPage() {
 
         {/* TAB 2: ALL MATCHES */}
         <TabsContent value="matches" className="space-y-4 mt-6">
-          {/* Day Selector for Matches */}
-          <div className="flex-1 max-w-sm space-y-2">
-            <label className="text-sm font-medium">Filter Matches by Day</label>
-            <Select value={matchesDayId} onValueChange={setMatchesDayId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select day" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">
-                  <div className="flex items-center gap-2">
-                    All Days
-                    <Badge variant="secondary">All Matches</Badge>
-                  </div>
-                </SelectItem>
-                {days.map((day) => (
-                  <SelectItem key={day.id} value={day.id}>
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex-1 max-w-sm space-y-2">
+              <label className="text-sm font-medium">Filter Matches by Day</label>
+              <Select value={matchesDayId} onValueChange={setMatchesDayId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select day" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">
                     <div className="flex items-center gap-2">
-                      Day {day.dayNumber}: {day.name}
-                      {day.status === "active" && <Badge variant="default">Active</Badge>}
+                      All Days
+                      <Badge variant="secondary">All Matches</Badge>
                     </div>
                   </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                  {days.map((day) => (
+                    <SelectItem key={day.id} value={day.id}>
+                      <div className="flex items-center gap-2">
+                        Day {day.dayNumber}: {day.name}
+                        {day.status === "active" && <Badge variant="default">Active</Badge>}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {allMatchStandings.length > 0 && (
+              <Button 
+                onClick={handleDownloadAllMatchesPDF} 
+                disabled={isExporting}
+                variant="outline"
+                size="sm"
+                className="mt-6"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Export All Matches PDF
+              </Button>
+            )}
           </div>
 
           {/* All Match Cards */}
@@ -480,7 +578,7 @@ export default function AdminLeaderboardPage() {
             </Card>
           ) : (
             <div className="space-y-6">
-              {allMatchStandings.map(({ match, matchDay, standings, showChampionRush }) => {
+              {allMatchStandings.map(({ match, matchDay, standings }) => {
                 const hasScores = standings.some(s => s.placement > 0);
 
                 return (
@@ -489,7 +587,7 @@ export default function AdminLeaderboardPage() {
                       <div className="flex items-center justify-between">
                         <CardTitle className="flex items-center gap-2">
                           <Target className="h-5 w-5 text-primary" />
-                          Match {match.matchNumber || 1}
+                          {match.name || `Match ${match.matchNumber || 1}`}
                         </CardTitle>
                         <div className="flex items-center gap-2 flex-wrap">
                           <Badge variant="secondary" className="text-xs">
@@ -518,6 +616,17 @@ export default function AdminLeaderboardPage() {
                               Locked
                             </Badge>
                           )}
+                          {(match.status === 'finished' || match.status === 'locked') && (
+                            <Button 
+                              size="icon" 
+                              variant="ghost" 
+                              className="h-8 w-8 text-muted-foreground hover:text-primary transition-colors" 
+                              onClick={() => handleDownloadMatchPDF(match, standings)}
+                              title="Download Match PDF"
+                            >
+                              <FileDown className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </CardHeader>
@@ -527,11 +636,17 @@ export default function AdminLeaderboardPage() {
                           <TableRow>
                             <TableHead className="w-[60px] text-center">Rank</TableHead>
                             <TableHead>Team</TableHead>
-                            <TableHead className="text-center">Kills</TableHead>
-                            <TableHead className="text-center">Placement</TableHead>
-                            {showChampionRush && <TableHead className="text-center">🔥 CR</TableHead>}
-                            <TableHead className="text-center">Place Pts</TableHead>
-                            <TableHead className="text-center">Total Points</TableHead>
+                            {match.type !== 'cs-bracket' && (
+                              <>
+                                <TableHead className="text-center">Kills</TableHead>
+                                <TableHead className="text-center">Placement</TableHead>
+                                <TableHead className="text-center">Place Pts</TableHead>
+                                <TableHead className="text-center">Total Points</TableHead>
+                              </>
+                            )}
+                            {match.type === 'cs-bracket' && (
+                              <TableHead className="text-center">Result</TableHead>
+                            )}
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -570,42 +685,41 @@ export default function AdminLeaderboardPage() {
                                     <div className="text-xs text-muted-foreground">No score yet</div>
                                   )}
                                 </TableCell>
-                                <TableCell className="text-center font-bold">
-                                  {hasScore ? result.kills : <span className="text-muted-foreground">-</span>}
-                                </TableCell>
-                                <TableCell className="text-center font-mono">
-                                  {hasScore ? result.placement : <span className="text-muted-foreground">-</span>}
-                                </TableCell>
-                                {showChampionRush && (
+                                {match.type !== 'cs-bracket' && (
+                                  <>
+                                    <TableCell className="text-center font-bold">
+                                      {hasScore ? result.kills : <span className="text-muted-foreground">-</span>}
+                                    </TableCell>
+                                    <TableCell className="text-center font-mono">
+                                      {hasScore ? result.placement : <span className="text-muted-foreground">-</span>}
+                                    </TableCell>
+                                    <TableCell className="text-center font-bold">
+                                      {hasScore ? result.placementPts : <span className="text-muted-foreground">-</span>}
+                                    </TableCell>
+                                    <TableCell className="text-center">
+                                      {hasScore ? (
+                                        <div className="flex items-center justify-center gap-2">
+                                          <Badge variant="default" className="text-base px-3 py-1">
+                                            {result.totalPoints}
+                                          </Badge>
+                                        </div>
+                                      ) : (
+                                        <span className="text-muted-foreground">-</span>
+                                      )}
+                                    </TableCell>
+                                  </>
+                                )}
+                                {match.type === 'cs-bracket' && (
                                   <TableCell className="text-center">
-                                    {hasScore && result.hasChampionRush ? (
-                                      <Badge variant="destructive" className="text-xs">
-                                        🔥 Yes
-                                      </Badge>
+                                    {result.placement === 1 ? (
+                                      <Badge className="bg-green-500 text-white">✓ WINNER</Badge>
+                                    ) : result.placement === 2 ? (
+                                      <Badge variant="destructive">ELIMINATED</Badge>
                                     ) : (
-                                      <span className="text-muted-foreground text-xs">-</span>
+                                      <span className="text-muted-foreground">-</span>
                                     )}
                                   </TableCell>
                                 )}
-                                <TableCell className="text-center font-bold">
-                                  {hasScore ? result.placementPts : <span className="text-muted-foreground">-</span>}
-                                </TableCell>
-                                <TableCell className="text-center">
-                                  {hasScore ? (
-                                    <div className="flex items-center justify-center gap-2">
-                                      <Badge variant="default" className="text-base px-3 py-1">
-                                        {result.totalPoints}
-                                      </Badge>
-                                      {result.isBooyah && (
-                                        <Badge variant="default" className="text-xs">
-                                          🏆
-                                        </Badge>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <span className="text-muted-foreground">-</span>
-                                  )}
-                                </TableCell>
                               </TableRow>
                             );
                           })}
